@@ -22,7 +22,6 @@ import {
   set_nmi_and_wait_keep_bank,
   clear_full_wram,
 } from "../../gen/routines";
-import { spend, MVN_BYTE } from "./b80a_util";
 
 const RARE_STRING = L("rare_string");
 const PIRACY_STRING = L("piracy_string");
@@ -85,11 +84,11 @@ function antiPiracyChecks(): number | null {
     const b = r8(y);
     if (b === 0x4c) {
       // JMP RESET_start
-      if (r16(y + 1) === RESET_VECTOR) return finishScan(y, checkForFalsePositive);
+      if (r16(y + 1) === RESET_VECTOR) return checkForFalsePositive();
     } else if (b === 0x6c) {
       // JMP (ptr) with ptr in ROM or low RAM pointing at the reset vector
       const p = r16(y + 1);
-      if ((p & 0x8000 || p < 0x2000) && bus16(p) === RESET_VECTOR) return finishScan(y, checkForFalsePositive);
+      if ((p & 0x8000 || p < 0x2000) && bus16(p) === RESET_VECTOR) return checkForFalsePositive();
     } else if (b === 0x60) {
       // the sequence $60, $61, ... $7F (a copier's RAM signature)
       let x = y;
@@ -97,11 +96,10 @@ function antiPiracyChecks(): number | null {
       while (r8(x) === a) {
         x++;
         a++;
-        if (a & 0x80) return finishScan(y, checkForFalsePositive);
+        if (a & 0x80) return checkForFalsePositive();
       }
     }
   }
-  spend(0x1ffe * SCAN_BYTE);
   // SRAM must be present (writable)
   const s = bus16(SRAM_BASE);
   busW16(SRAM_BASE, (s + 1) & 0xffff);
@@ -116,14 +114,6 @@ function antiPiracyChecks(): number | null {
     if (r16(R.piracy_string_result + x) !== bus16(PIRACY_STRING + x)) return null;
   }
   return MSG_PIRACY;
-}
-
-/** Master cycles of one iteration of the RAM scan loop (LDA abs,y / 3x CMP+BEQ / DEY / BPL). */
-const SCAN_BYTE = 134;
-
-function finishScan(y: number, then: () => number | null): number | null {
-  spend((0x1ffe - y) * SCAN_BYTE);
-  return then();
 }
 
 /**
@@ -212,7 +202,6 @@ export function clear_vram_global() {
 export function start_engine() {
   // STZ $00 + MVN: zero bank $7E, then copy it over bank $7F
   wram.fill(0, 0, 0x20000);
-  spend(2 * 0x10000 * MVN_BYTE);
   reg.db = 0x80;
   for (let x = 6; x >= 0; x -= 2) w16(R.piracy_string_result + x, bus16(RARE_STRING + x));
   reg.x = 0xfffe;

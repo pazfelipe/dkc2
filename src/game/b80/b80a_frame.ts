@@ -14,10 +14,12 @@
  * and simply returns all the way up. The stack resets (`TXS`/`TCS`) have no TS equivalent.
  */
 import { r8, r16, w16, io8, io16, ioR8, inc16 } from "../../core/mem";
-import { reg, register, callPtr } from "../../core/cpu";
+import { reg, register } from "../../core/cpu";
+import { jumpPtr } from "./b80a_util";
 import { endFrame } from "../../core/hybrid";
 import { waitUntil } from "../../core/ops";
 import { L, R, CPU, PPU, DMA, joypad } from "../../core/sym";
+import { set_fade, fade_screen } from "../../gen/routines";
 
 const RUN_INCOMPLETE_FRAME = L("run_incomplete_frame") & 0xffff;
 const RUN_SIMPLE_GAME_MODE = L("run_simple_game_mode") & 0xffff;
@@ -31,7 +33,7 @@ export function NMI_start() {
   ioR8(CPU.nmi_flag); // acknowledge the NMI
   io8(PPU.screen, 0x8f); // F-blank while the frame's uploads run
   inc16(R.global_frame_counter);
-  callPtr(0x80, r16(R.nmi_pointer));
+  jumpPtr(0x80, r16(R.nmi_pointer));
 }
 
 /** $80F3E6 — NMI routine used while a frame's logic is still running (lag frame). */
@@ -56,7 +58,7 @@ export function run_simple_game_mode() {
 export function CODE_80860C() {
   w16(R.nmi_pointer, RUN_INCOMPLETE_FRAME);
   inc16(R.active_frame_counter);
-  callPtr(0x80, r16(R.game_mode_pointer));
+  jumpPtr(0x80, r16(R.game_mode_pointer));
 }
 
 /** $808616 — frame end variant that also advances RAM_0985 and writes the brightness. */
@@ -165,6 +167,16 @@ export function prepare_oam_dma_channel() {
   reg.a = 0x0400;
 }
 
+/** $808C2E — long wrapper of set_fade (screen_fade.ts). */
+export function set_fade_global() {
+  set_fade();
+}
+
+/** $808C39 — long wrapper of fade_screen (screen_fade.ts). */
+export function fade_screen_global() {
+  fade_screen();
+}
+
 // ---------------------------------------------------------------------------------------------
 // Exceptions (debug leftovers)
 
@@ -203,6 +215,8 @@ register({
   prepare_oam_dma_channel_global,
   prepare_oam_dma_channel,
   throw_exception,
+  set_fade_global,
+  fade_screen_global,
   CODE_808C21,
   CODE_808C22,
 });

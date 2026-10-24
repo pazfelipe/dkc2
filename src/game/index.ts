@@ -7,6 +7,7 @@ import "./b80/b80a_game_mode_select";
 import "./b80/b80a_input";
 import "./b80/b80a_intro";
 import "./b80/b80a_modes";
+import "./b80/b80a_secret_ending";
 import "./b80/b80a_util";
 import "./b80/b80a_wram";
 import "./b80/screen_fade";

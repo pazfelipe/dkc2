@@ -34,7 +34,7 @@ import { init_registers_global, clear_vram } from "./b80a_boot";
 import { clear_noncritical_wram, set_all_oam_offscreen, dma_to_vram_global } from "./b80a_wram";
 import { prepare_oam_dma_channel } from "./b80a_frame";
 import { CODE_8090BB, init_existing_file } from "./b80a_modes";
-import { play_high_priority_sound, play_song, spend } from "./b80a_util";
+import { play_high_priority_sound, play_song } from "./b80a_util";
 
 const WINDOWING = R.hdma_menu_windowing; // write_word entries: count (1) + value (2)
 const SRAM_FILE_OFFSETS = L("run_file_select_sram_file_offsets");
@@ -103,7 +103,6 @@ export function init_file_select() {
     setFilePointer(R.temp_32, r16(SELECTION));
     const dst = ptrAt(R.temp_32);
     for (let y = SAVE_FILE_SIZE - 2; y >= 0; y -= 2) busW16(addY(dst, y), r16(R.sram_file_buffer + y));
-    spend((SAVE_FILE_SIZE / 2) * 140);
     reg.y = 0xfffe;
   }
   // .skip_sram_copy
@@ -403,7 +402,6 @@ function copyFile() {
   const dst = ptrAt(R.temp_32);
   const src = ptrAt(0x36);
   for (let y = SAVE_FILE_SIZE - 2; y >= 0; y -= 2) busW16(addY(dst, y), bus16(addY(src, y)));
-  spend((SAVE_FILE_SIZE / 2) * 150);
   reg.a = r16(SELECTION);
   get_file_status();
   w16(ACTION, r16(ACTION) | 0x0020);
@@ -421,7 +419,6 @@ function loadSelectedFile() {
   const src = ptrAt(R.temp_32);
   // (copies 2 bytes more than the file)
   for (let y = SAVE_FILE_SIZE; y >= 0; y -= 2) w16(R.sram_file_buffer + y, bus16(addY(src, y)));
-  spend((SAVE_FILE_SIZE / 2 + 1) * 140);
   reg.db = 0x80;
   init_existing_file();
 }

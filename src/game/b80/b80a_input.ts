@@ -6,7 +6,7 @@
  * "inverted controls" effect, and handles pausing. Its result tells the caller whether the game
  * is paused this frame (Z clear / A != 0 = paused).
  */
-import { r16, w16, ioR8, ioR16, hw, bus16 } from "../../core/mem";
+import { r16, w16, ioR8, ioR16, bus16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { frameEnded, setRetMode, RET_RTS } from "../../core/hybrid";
 import { waitUntil } from "../../core/ops";
@@ -191,8 +191,8 @@ function checkForDebugCheat() {
   disable_screen();
   reg.a = sound(5, C.sound_swap_kongs);
   play_high_priority_sound();
-  // .waste_cpu_time: 65536 calls of .stall_for_time (6x LDY dp,x + JSR/RTS + DEC/BNE)
-  hw.idle(65536 * 300);
+  // .waste_cpu_time: 65536 calls of .stall_for_time (a CPU-time delay; ported logic takes no
+  // emulated time, so it is a no-op here)
   w16(R.game_state_flags, r16(R.game_state_flags) & ~0x0040);
   CODE_BBBDC4();
 }

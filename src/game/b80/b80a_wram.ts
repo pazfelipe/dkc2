@@ -1,31 +1,24 @@
 /**
  * Bank $80 — WRAM clearing, OAM clearing, simple DMA helpers and the second RNG.
  *
- * The original clears memory with MVN block moves, which take a lot of real time (46 master
- * cycles per byte here: the 3-byte instruction is refetched for every byte). That time matters:
- * game mode inits run inside the NMI and span several video frames, so the port spends the same
- * emulated time (`spend`) to keep lag frames identical.
+ * The original clears memory with overlapping MVN block moves (STZ the first byte, then copy it
+ * forward); here that is a plain fill. Like all ported logic it takes no emulated time.
  */
 import { r16, w16, io8, io16, wram, rom16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { L, R, DMA, CPU, wram_clear_table } from "../../core/sym";
-import { spend, MVN_BYTE } from "./b80a_util";
 
-/**
- * STZ first byte + overlapping MVN: zero WRAM offsets [start, end) (0..$1FFFF); the MVN moves
- * `moved` bytes (its A + 1).
- */
-function zeroWram(start: number, end: number, moved: number) {
+/** zero WRAM offsets [start, end) (0..$1FFFF) */
+function zeroWram(start: number, end: number) {
   wram.fill(0, start, end);
-  spend(moved * MVN_BYTE);
 }
 
 /** $808E6A — clear the WRAM that is rebuilt by every game mode init. */
 export function clear_noncritical_wram() {
-  zeroWram(0x00d9, 0x00ff, 0x0025); // $D9-$FE
-  zeroWram(0x0911, 0x19da, 0x10c8); // $0911-$19D9
-  zeroWram(0x5a12, 0x9528, 0x3b15); // $7E5A12-$7E9527 (sprite spawn lists...)
-  zeroWram(0x10000, 0x20000, 0x10000); // all of bank $7F
+  zeroWram(0x00d9, 0x00ff); // $D9-$FE
+  zeroWram(0x0911, 0x19da); // $0911-$19D9
+  zeroWram(0x5a12, 0x9528); // $7E5A12-$7E9527 (sprite spawn lists...)
+  zeroWram(0x10000, 0x20000); // all of bank $7F
   // MVN leaves A = $FFFF, X = $0000, Y = $0001; DB restored by PLB
   reg.a = 0xffff;
   reg.x = 0x0000;
@@ -41,11 +34,11 @@ export function clear_noncritical_wram() {
  */
 export function clear_full_wram() {
   w16(R.temp_32, 0x85eb); // the only caller is restart_rareware_logo ($8085E8 + 3)
-  zeroWram(0x10000, 0x20000, 0x10000); // bank $7F
-  zeroWram(0x0911, 0x10000, 0xf6ee); // $7E0911-$7EFFFF
+  zeroWram(0x10000, 0x20000); // bank $7F
+  zeroWram(0x0911, 0x10000); // $7E0911-$7EFFFF
   // $0034-$0906 (except the stack page)
   wram.fill(0, 0x0034, 0x0100);
-  zeroWram(0x0200, 0x0907, 0x08d2);
+  zeroWram(0x0200, 0x0907);
   reg.db = 0x80;
   reg.a = 0xffff;
 }

@@ -3,7 +3,8 @@
  * and the NMI routines of the NPC / bonus / credits screens.
  */
 import { r8, w8, r16, w16, bus16, rom16 } from "../../core/mem";
-import { reg, register, callPtr } from "../../core/cpu";
+import { reg, register } from "../../core/cpu";
+import { jumpPtr } from "./b80a_util";
 import { endFrame, frameEnded } from "../../core/hybrid";
 import { L, R, C, CPU, level, sprite, sprite_table } from "../../core/sym";
 import { ioR8 } from "../../core/mem";
@@ -46,7 +47,6 @@ import {
 } from "../../gen/routines";
 import { io8 } from "../../core/mem";
 import { PPU } from "../../core/sym";
-import { spend } from "./b80a_util";
 
 const NMI_SUB_MODE_TABLE = L("nmi_sub_mode_table");
 const GAME_SUB_MODE_TABLE = L("game_sub_mode_table");
@@ -86,7 +86,7 @@ export function CODE_80880A() {
  */
 export function CODE_808819() {
   reg.x = (r16(R.nmi_sub_mode) << 1) & 0xffff;
-  callPtr(0x80, rom16(NMI_SUB_MODE_TABLE + reg.x));
+  jumpPtr(0x80, rom16(NMI_SUB_MODE_TABLE + reg.x));
   if (frameEnded) return;
   // the uploads must have finished inside VBlank (a debug check; throw_exception is a no-op)
   if (!(ioR8(CPU.ppu_status) & 0x80)) {
@@ -100,7 +100,7 @@ export function CODE_808819() {
 export function CODE_808830() {
   reg.x = (r16(R.game_sub_mode) << 1) & 0xffff;
   reg.a = reg.x;
-  callPtr(0x80, rom16(GAME_SUB_MODE_TABLE + reg.x));
+  jumpPtr(0x80, rom16(GAME_SUB_MODE_TABLE + reg.x));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -563,7 +563,6 @@ export function CODE_808684() {
   w16(R.pending_dma_hdma_channels, 1);
   io8(PPU.screen, 0x0f);
   // .infinite_loop: the original hangs here forever (NMIs keep firing)
-  spend(1);
   endFrame();
 }
 

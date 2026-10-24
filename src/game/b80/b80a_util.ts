@@ -26,13 +26,20 @@ export const play_song_with_transition = () => jslLabel("play_song_with_transiti
 export const transition_song = () => jslLabel("transition_song");
 export const play_queued_sound_effect = () => jslLabel("play_queued_sound_effect");
 
-// ---- emulated time spent by long loops of the original (master cycles) ----
-import { hw } from "../../core/mem";
+// ---- indirect jumps ----
+import { callAddr, UnportedRoutine } from "../../core/cpu";
+import { KIND_JSR } from "../../core/hybrid";
 
-/** Master cycles per byte of an MVN block move (refetches its 3 bytes from FastROM each time). */
-export const MVN_BYTE = 46;
-
-/** Let `masterCycles` of emulated time pass, as the original's loop would have taken. */
-export function spend(masterCycles: number) {
-  if (masterCycles > 0) hw.idle(masterCycles);
+/**
+ * JMP/JSR through a code pointer in `bank` (game mode / NMI / sub mode tables). Targets without
+ * a generated stub (e.g. `#labels`) run on the reference CPU as a JSR.
+ */
+export function jumpPtr(bank: number, ptr16: number) {
+  const addr = (bank << 16) | (ptr16 & 0xffff);
+  try {
+    callAddr(addr);
+  } catch (e) {
+    if (!(e instanceof UnportedRoutine) || e.addr !== addr) throw e;
+    runOriginal(addr, KIND_JSR, reg.db, 0, 0);
+  }
 }
