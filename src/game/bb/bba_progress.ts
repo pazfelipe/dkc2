@@ -5,7 +5,8 @@
  * Progress flags are bit arrays in WRAM bank $7E, one bit per level number: the level number's low
  * nibble selects the bit and the high nibble selects the 16-bit word.
  */
-import { r8, r16, w16, rom16, bus16 } from "../../core/mem";
+import { r8, r16, w16, rom16 } from "../../core/mem";
+import { read16x } from "./bba_util";
 import { reg, register } from "../../core/cpu";
 import { L, R, level, C } from "../../core/sym";
 import { CODE_BBAF0F, CODE_BBAF0C } from "../../gen/routines";
@@ -162,7 +163,7 @@ export function calculate_completion_percentage() {
   let count = 0;
   w16(0x5e, 0x10);
   do {
-    let flags = bus16((r8(0x28) << 16) | r16(0x26)); // LDA [$26]
+    let flags = read16x((r8(0x28) << 16) | r16(0x26)); // LDA [$26]
     for (let i = 0; i < 16; i++) {
       if (flags & 1) count++;
       flags >>= 1;

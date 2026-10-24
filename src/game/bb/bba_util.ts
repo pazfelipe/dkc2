@@ -26,3 +26,10 @@ export function jsrLabel(name: string) {
   if (impl) return impl();
   runOriginal(addr, KIND_JSR, reg.db, 0, 0);
 }
+
+import { bus8 } from "../../core/mem";
+/** 16-bit read at a 24-bit address where the second byte is at address+1 across banks
+ * (long indexed / absolute indexed addressing; `bus16` wraps inside the bank instead). */
+export function read16x(addr: number): number {
+  return bus8(addr & 0xffffff) | (bus8((addr + 1) & 0xffffff) << 8);
+}

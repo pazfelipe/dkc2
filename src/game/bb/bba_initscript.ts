@@ -15,7 +15,7 @@
  * stack (PHB ... PLB/RTL); here the interpreter is a loop over a small state record and each
  * command is a function named after its label that returns true when the script ends.
  */
-import { r16, w16, bus16, busW16, rom16 } from "../../core/mem";
+import { r16, w16, busW16, rom16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { L, R, C, sprite, sprite_table, level } from "../../core/sym";
 import {
@@ -25,7 +25,7 @@ import {
   allocate_sprite_vram_slot,
   dereference_sprite_palette,
 } from "../../gen/routines";
-import { mergeBits } from "./bba_util";
+import { mergeBits, read16x } from "./bba_util";
 
 const SPRITE_SIZE = 0x5e;
 const SPRITE_DMA_SIZE = 8;
@@ -47,7 +47,7 @@ interface Script {
 
 /** LDA.w DATA_FF0000+off,y: script word at Y+off in the script's bank. */
 function operand(s: Script, off: number): number {
-  return bus16(((s.db << 16) + off + s.y) & 0xffffff);
+  return read16x((s.db << 16) + off + s.y);
 }
 
 const alt = () => r16(R.alternate_sprite);

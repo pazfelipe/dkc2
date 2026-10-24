@@ -11,11 +11,11 @@
  * The Kongs' palettes are special: the inactive Kong uses a darkened variant, and gas clouds or
  * invincibility tint them (CODE_BB8B66 picks the colors).
  */
-import { r16, w16, rom16, io8, io16, bus16 } from "../../core/mem";
+import { r16, w16, rom16, io8, io16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { L, R, C, sprite, sprite_palette_dma, level, DMA, PPU, CPU } from "../../core/sym";
 import { throw_exception } from "../../gen/routines";
-import { mergeBits } from "./bba_util";
+import { mergeBits, read16x } from "./bba_util";
 
 const SPRITE_PALETTE_TABLE = L("sprite_palette_table");
 const PALETTE_BANK = (L("palette_data_bank") >> 16) & 0xff;
@@ -347,8 +347,8 @@ export function get_sprite_position_in_level_data() {
   const y = (((r16(x + sprite.placement_number) - 1) & 0xffff) << 3) & 0xffff;
   reg.y = y;
   // LDA ($F5),y / LDA ($F7),y with DB = $FE
-  w16(0x72, bus16((0xfe0000 + r16(0xf5) + y) & 0xffffff));
-  reg.a = bus16((0xfe0000 + r16(0xf7) + y) & 0xffffff);
+  w16(0x72, read16x(0xfe0000 + r16(0xf5) + y));
+  reg.a = read16x(0xfe0000 + r16(0xf7) + y);
   w16(0x74, reg.a);
 }
 
@@ -426,7 +426,7 @@ export function set_sprite_palette_direct() {
 /** $BB8C68 — Y = sprite. */
 export function CODE_BB8C68() {
   // LDA.w sprite.oam_property,y: absolute, so it goes through the data bank
-  reg.a = bus16(((reg.db << 16) + ((reg.y + sprite.oam_property) & 0xffff)) & 0xffffff);
+  reg.a = read16x((reg.db << 16) + ((reg.y + sprite.oam_property) & 0xffff));
   dereference_sprite_palette();
   CODE_BB8C6E();
 }
