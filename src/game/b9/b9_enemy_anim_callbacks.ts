@@ -124,6 +124,9 @@ export function turn_sprite_if_needed() {
   setAnim(reg.y);
 }
 
+/** $B9E575 — empty callback (the RTS of turn_sprite_if_needed, used by a command 90). */
+export function CODE_B9E575() {}
+
 /** $B9E576 — carry clear when both Kongs are not in a state with flag 1 (game_state bit 14 clear). */
 export function CODE_B9E576() {
   if (r16(R.game_state_flags) & 0x4000) {
@@ -1287,6 +1290,7 @@ register({
   CODE_B9E551,
   CODE_B9E55D,
   turn_sprite_if_needed,
+  CODE_B9E575,
   CODE_B9E576,
   CODE_B9E594,
   CODE_B9E5AB,

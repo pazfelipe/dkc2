@@ -16,7 +16,7 @@
  * DP-relative operands (`rel_sprite_clipping`). The direct page is modelled by `dp` below;
  * the public (JSL) entry points save and restore it like their PHD/PLD pairs.
  */
-import { r16, w16, rom16, bus16 } from "../../core/mem";
+import { r16, w16, rom16, bus8 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { L, R, sprite, sprite_table, rel_sprite_clipping as rel } from "../../core/sym";
 
@@ -38,10 +38,15 @@ const TEMP1 = R.temp_sprite_clipping + CLIP_SIZE;
 /** Current direct page while the clipping helpers run (0 outside of them). */
 let dp = 0;
 
+/** Absolute indexed word read in a data bank (crosses into the next bank like the 65816). */
+function absIndexed16(bank: number, addr: number): number {
+  const full = ((bank & 0xff) << 16) + addr;
+  return bus8(full & 0xffffff) | (bus8((full + 1) & 0xffffff) << 8);
+}
 /** `LDA $xxxx,y` with DB = $BC (hitbox data; $0000-$1FFF would be WRAM). */
-const hitbox16 = (addr: number) => bus16((BANK << 16) | (addr & 0xffff));
+const hitbox16 = (addr: number) => absIndexed16(BANK, addr);
 /** `LDA.w $xxxx,y` through the caller's data bank. */
-const dbRead16 = (addr: number) => bus16(((reg.db & 0xff) << 16) | (addr & 0xffff));
+const dbRead16 = (addr: number) => absIndexed16(reg.db, addr);
 
 /** Store a 24-bit collision routine pointer the way the original does (two 16-bit stores). */
 function setCollisionRoutine(addr: number) {

@@ -7,7 +7,7 @@
  * DB = $F9. Each PHB ... PLB pair of the original is modelled with a small stack so that the
  * DB seen by original (non-ported) routines called from here is exactly the original one.
  */
-import { r8, r16, bus16, busW16 } from "../../core/mem";
+import { r8, r16, bus8, bus16, busW8 } from "../../core/mem";
 import { reg, implAt } from "../../core/cpu";
 import { runOriginal, KIND_JSL } from "../../core/hybrid";
 import { L, R } from "../../core/sym";
@@ -26,14 +26,21 @@ export function popDb() {
   if (v !== undefined) reg.db = v;
 }
 
-/** `LDA $xxxx` / `LDA $xxxx,y` through the current data bank (ROM in bank $F9, WRAM in $B9). */
+/**
+ * `LDA $xxxx` / `LDA $xxxx,y` through the current data bank (ROM in bank $F9, WRAM in $B9).
+ * `addr` is base + index without masking: like the 65816, an indexed address that passes $FFFF
+ * (or a word straddling it) continues into the next bank.
+ */
 export function dbRead16(addr: number): number {
-  return bus16(((reg.db & 0xff) << 16) | (addr & 0xffff));
+  const full = ((reg.db & 0xff) << 16) + addr;
+  return bus8(full & 0xffffff) | (bus8((full + 1) & 0xffffff) << 8);
 }
 
-/** `STA $xxxx` through the current data bank. */
+/** `STA $xxxx` through the current data bank (same addressing as dbRead16). */
 export function dbWrite16(addr: number, v: number) {
-  busW16(((reg.db & 0xff) << 16) | (addr & 0xffff), v & 0xffff);
+  const full = ((reg.db & 0xff) << 16) + addr;
+  busW8(full & 0xffffff, v & 0xff);
+  busW8((full + 1) & 0xffffff, (v >> 8) & 0xff);
 }
 
 /** `LDA [current_sprite_constants],y` — a word from the current sprite's constants block. */
