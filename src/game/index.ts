@@ -2,7 +2,9 @@
 import "./b3/sprite_handler";
 import "./b80/screen_fade";
 import "./bb/bba_decompress";
+import "./bb/bba_dma_init";
 import "./bb/bba_initscript";
+import "./bb/bba_level_init";
 import "./bb/bba_palette";
 import "./bb/bba_ppu";
 import "./bb/bba_progress";
