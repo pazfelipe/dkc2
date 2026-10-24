@@ -97,6 +97,7 @@ function specialPlayerClipping(activeSlot: number, inactiveSlot: number, populat
 export function get_active_kong_clipping() {
   const x = r16(R.current_sprite);
   reg.x = x;
+  reg.c = x >= r16(R.active_kong_sprite); // CPX
   if (x !== r16(R.active_kong_sprite)) return;
   const savedDp = dp;
   // BIT with whatever the caller left in A: slot 0 is taken when bits overlap
@@ -205,7 +206,8 @@ export function CODE_BCFB8B() {
   if (v >= r16(s0 + rel.top)) w16(s2 + rel.top, r16(s0 + rel.top));
   v = r16(s2 + rel.bottom);
   w16(s1 + rel.bottom, v);
-  if (v < r16(s0 + rel.bottom)) w16(s2 + rel.bottom, r16(s0 + rel.bottom));
+  reg.c = v >= r16(s0 + rel.bottom);
+  if (!reg.c) w16(s2 + rel.bottom, r16(s0 + rel.bottom));
   dp = savedDp;
 }
 
@@ -247,7 +249,8 @@ export function populate_main_sprite_clipping() {
   w16(s2 + rel.top, top0 < top1 ? top0 : top1);
   const bottom0 = r16(s0 + rel.bottom);
   const bottom1 = r16(s1 + rel.bottom);
-  const bottom = bottom0 >= bottom1 ? bottom0 : bottom1;
+  reg.c = bottom0 >= bottom1;
+  const bottom = reg.c ? bottom0 : bottom1;
   w16(s2 + rel.bottom, bottom);
   reg.a = bottom;
 }
