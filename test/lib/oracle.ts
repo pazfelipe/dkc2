@@ -9,7 +9,8 @@ import { bindMachine } from "../../src/core/mem.ts";
 import { L, labelAt } from "../../src/core/sym.ts";
 
 export const ROM_PATH = process.env.DKC2_ROM ?? "/home/claude/dkc2/Donkey Kong Country 2 - Diddy's Kong Quest (USA) (En,Fr) (Rev 1).sfc";
-export const STATES_DIR = new URL("../states/", import.meta.url).pathname;
+/** Test states are shared between worktrees: DKC2_STATES overrides the location. */
+export const STATES_DIR = process.env.DKC2_STATES ?? new URL("../states/", import.meta.url).pathname;
 
 export interface Regs {
   a: number;

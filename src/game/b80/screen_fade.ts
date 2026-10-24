@@ -2,9 +2,9 @@
  * Bank $80 — main engine: reset/NMI, game modes, level sub-modes, scrolling effects, fades.
  * Ported from the DKC2 disassembly (bank_80.asm). Each routine keeps its original label.
  */
-import { r8, w8, r16, w16 } from "../core/mem";
-import { reg, register } from "../core/cpu";
-import { R } from "../core/sym";
+import { r8, w8, r16, w16 } from "../../core/mem";
+import { reg, register } from "../../core/cpu";
+import { R } from "../../core/sym";
 
 /** $808C32 — A = brightness. Stop any fade and set the brightness directly. */
 export function set_fade() {
