@@ -139,7 +139,7 @@ export function init_game_mode_select() {
 }
 
 /** $8097EB — clear the scratch RAM $32-$51. */
-export function CODE_8097EB() {
+function CODE_8097EB() {
   for (let x = 0x1e; x >= 0; x -= 2) w16(R.temp_32 + x, 0);
   reg.x = 0xfffe;
   reg.a = 0;
@@ -380,7 +380,6 @@ export function CODE_809E59() {
 
 register({
   init_game_mode_select,
-  CODE_8097EB,
   CODE_8099A7,
   run_game_mode_select,
   CODE_809DE2,

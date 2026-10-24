@@ -8,7 +8,7 @@
  */
 import { r16, w16, ioR8, ioR16, bus16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
-import { frameEnded, setRetMode, RET_RTS } from "../../core/hybrid";
+import { frameEnded, setRetMode, RET_RTS, RET_RTL } from "../../core/hybrid";
 import { waitUntil } from "../../core/ops";
 import { L, R, C, CPU, joypad } from "../../core/sym";
 import { play_high_priority_sound } from "./b80a_util";
@@ -359,6 +359,9 @@ export function reset_controller_state() {
 // input_and_pause_handler has no stub of its own (it is the JSR entry inside the _global
 // wrapper): make original callers that trap into it return with RTS.
 setRetMode(L("input_and_pause_handler"), RET_RTS);
+// the generated stubs guess these return kinds wrong (see report)
+setRetMode(L("input_and_pause_handler_global"), RET_RTL);
+for (const t of ["CODE_808BBF", "CODE_808BCF", "CODE_808BE1", "CODE_808BEE", "CODE_808BFE", "CODE_808C10"]) setRetMode(L(t), RET_RTS);
 
 register({
   input_and_pause_handler_global,

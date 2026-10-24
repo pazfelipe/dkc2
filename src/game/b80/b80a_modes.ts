@@ -5,7 +5,7 @@
 import { r8, w8, r16, w16, bus16, rom16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { jumpPtr } from "./b80a_util";
-import { endFrame, frameEnded } from "../../core/hybrid";
+import { endFrame, frameEnded, setRetMode, RET_RTS } from "../../core/hybrid";
 import { L, R, C, CPU, level, sprite, sprite_table } from "../../core/sym";
 import { ioR8 } from "../../core/mem";
 import {
@@ -233,7 +233,7 @@ export function set_active_kong() {
 }
 
 /** $808863 .set_dixie */
-export function set_active_kong_set_dixie() {
+function set_active_kong_set_dixie() {
   w16(R.active_kong_sprite, sprite_table.slot_2);
   w16(R.active_kong_control_variables, R.dixie_control_variables);
   w16(R.active_kong_number, 1);
@@ -566,6 +566,9 @@ export function CODE_808684() {
   endFrame();
 }
 
+// tails of RTS routines whose generated stubs assume RTL
+for (const t of ["CODE_80875E", "CODE_80876E", "CODE_808FF3"]) setRetMode(L(t), RET_RTS);
+
 register({
   CODE_8087E1,
   CODE_80880A,
@@ -582,7 +585,6 @@ register({
   CODE_8087D9,
   set_active_kong_global,
   set_active_kong,
-  set_active_kong_set_dixie,
   swap_active_kong_global,
   swap_active_kong,
   get_level_number,

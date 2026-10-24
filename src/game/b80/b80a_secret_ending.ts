@@ -7,7 +7,7 @@
  */
 import { r8, r16, w16, io8, io16, ioR8, bus16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
-import { endFrame, frameEnded } from "../../core/hybrid";
+import { endFrame, frameEnded, setRetMode, RET_RTS } from "../../core/hybrid";
 import { L, R, C, CPU, PPU, HDMA, sprite, sprite_table } from "../../core/sym";
 import {
   disable_screen,
@@ -159,7 +159,7 @@ function palette(a: number, y: number, x: number) {
 }
 
 /** $809FA2 — fill direct page X..$D1 with A (overlapping 16-bit stores, X += 1): $CCCC. */
-export function CODE_809FA2() {
+function CODE_809FA2() {
   let x = reg.x;
   do {
     w16(x & 0xffff, reg.a);
@@ -169,7 +169,7 @@ export function CODE_809FA2() {
 }
 
 /** $809FC1 — store A at $32+X down to $32 (X -= 2): clears $32-$51. */
-export function CODE_809FC1() {
+function CODE_809FC1() {
   let x = reg.x;
   do {
     w16((0x32 + x) & 0xffff, reg.a);
@@ -179,7 +179,7 @@ export function CODE_809FC1() {
 }
 
 /** $80A0C2 — BG2 vertical scroll HDMA table at $7E8012: 7 short bands then 10 wave bands. */
-export function CODE_80A0C2() {
+function CODE_80A0C2() {
   let x = reg.x;
   do {
     w16(0x7e8015 + x, 0x0004);
@@ -193,7 +193,7 @@ export function CODE_80A0C2() {
 }
 
 /** $80A0E9 */
-export function CODE_80A0E9() {
+function CODE_80A0E9() {
   let x = reg.x;
   do {
     w16(0x7e8015 + x, 0x0002);
@@ -416,12 +416,10 @@ export function CODE_80A5D1() {
   w16((x + 0x0a) & 0xffff, reg.a);
 }
 
+setRetMode(L("CODE_80A542"), RET_RTS);
+
 register({
   init_secret_ending,
-  CODE_809FA2,
-  CODE_809FC1,
-  CODE_80A0C2,
-  CODE_80A0E9,
   run_secret_ending,
   CODE_80A327,
   CODE_80A35B,
