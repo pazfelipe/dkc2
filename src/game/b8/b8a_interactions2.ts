@@ -91,7 +91,7 @@ function setFollowState(renderOrder: number | null, a: number, x: number) {
 /** $B88B15 — interaction $19: crossing a No-Animal sign: the buddy turns into an item. Carry set. */
 export function player_interaction_19() {
   if (r16(R.current_player_mount)) {
-    animalMountedTransform(); // CODE_B88B80
+    CODE_B88B80(); // CODE_B88B80
     return;
   }
   reg.a = r16(R.animal_type);
@@ -129,11 +129,11 @@ export function player_interaction_19() {
     w16(R.game_state_flags, reg.a);
     CODE_B8A98A();
   }
-  animalTransformEnd(); // CODE_B88B72 -> CODE_B88BD9
+  CODE_B88BD9(); // CODE_B88B72 -> CODE_B88BD9
 }
 
 /** CODE_B88B80 — riding a buddy: dismount and delete it. */
-function animalMountedTransform() {
+function CODE_B88B80() {
   play_morph_from_animal_sound();
   work_on_active_kong();
   if (r16(R.animal_type) === C.sprite_enguarde) {
@@ -163,11 +163,11 @@ function animalMountedTransform() {
   delete_sprite_handle_deallocation();
   w16(R.animal_type, 0);
   w16(R.current_player_mount, 0);
-  animalTransformEnd();
+  CODE_B88BD9();
 }
 
 /** CODE_B88BD9 — spawn the item the buddy turned into (unless $0A86 is negative) and the smoke. */
-function animalTransformEnd() {
+function CODE_B88BD9() {
   reg.a = 0x001c;
   reg.y = 0x0014;
   enable_bullet_time();
@@ -911,11 +911,11 @@ export function CODE_B8941D() {
   const x = r16(R.current_sprite);
   reg.x = x;
   w16(x + sprite.state, C.kong_state_09);
-  mountFinish();
+  CODE_B89424();
 }
 
 /** CODE_B89424 */
-function mountFinish() {
+function CODE_B89424() {
   reg.a = 0x0081;
   set_anim_handle_animal_and_dixie();
   CODE_B895E5();
@@ -929,7 +929,7 @@ export function CODE_B89436() {
   reg.x = x;
   w16(x + sprite.y_speed, 0);
   w16(x + sprite.state, C.kong_state_50);
-  mountFinish();
+  CODE_B89424();
 }
 
 /** $B89441 — carried by Squawks. */

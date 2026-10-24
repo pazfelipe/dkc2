@@ -564,14 +564,14 @@ export function kong_state_0C() {
     kong_state_return();
     return;
   }
-  carryingTail();
+  CODE_B89BB4();
 }
 
 /**
  * CODE_B89BB4 (shared tail of states $0C/$0D): dropped the held sprite -> fall; otherwise
  * check for sticking to honey, then the held-sprite handling.
  */
-function carryingTail() {
+function CODE_B89BB4() {
   reg.a = r16(R.current_held_sprite);
   if (reg.a === 0) {
     // CODE_B89BCD
@@ -598,7 +598,7 @@ export function kong_state_0D() {
   face_moving_direction();
   set_normal_gravity_if_falling();
   handle_player_physics();
-  carryingTail();
+  CODE_B89BB4();
 }
 
 /** $B89BE4 */
@@ -808,7 +808,7 @@ export function kong_state_12() {
     interpolate_x_velocity();
     CODE_B89E57();
     CODE_B89E38();
-    return barrelBlastLanding();
+    return CODE_B89DF7();
   }
   w16(x + sprite.general_purpose_42, (t + 1) & 0xffff);
   if (r16(x + sprite.general_purpose_48) !== 0) {
@@ -835,12 +835,12 @@ export function kong_state_12() {
       start_player_falling();
       const k = ldxCurrentSprite();
       w16(k + sprite.state, 0x0010);
-      return barrelBlastEnd();
+      return CODE_B89E16();
     }
     if (animal === C.sprite_enguarde) {
       // CODE_B89E0D
       set_swimming_state();
-      return barrelBlastEnd();
+      return CODE_B89E16();
     }
     if (r16(x + sprite.max_x_speed) !== 0) CODE_B89E44();
     else reg.a = 0x0002; // CODE_B89DC5
@@ -852,11 +852,11 @@ export function kong_state_12() {
   CODE_B89E57();
   CODE_B89E38();
   CODE_B8B714();
-  barrelBlastLanding();
+  CODE_B89DF7();
 }
 
 /** CODE_B89DF7: touching any terrain ends the blast (X is whatever the last callee left). */
-function barrelBlastLanding() {
+function CODE_B89DF7() {
   reg.a = r16(reg.x + sprite.terrain_interaction) & 0x0303;
   if (!reg.a) {
     kong_state_return();
@@ -864,11 +864,11 @@ function barrelBlastLanding() {
   }
   // CODE_B89E12
   CODE_B9DFCF();
-  barrelBlastEnd();
+  CODE_B89E16();
 }
 
 /** CODE_B89E16 */
-function barrelBlastEnd() {
+function CODE_B89E16() {
   w16(0x0aee, 0);
   w16(0x0af2, 0);
   reg.a = 0x3fff & r16(0x0ab8);
@@ -1015,7 +1015,7 @@ export function kong_state_1D() {
 
 /** $B89F1E — sub-state 0: just move. */
 export function CODE_B89F1E() {
-  kong1DMove();
+  CODE_B89FB9();
 }
 
 /** $B89F21 — sub-state 1: start walking towards the target. */
@@ -1025,7 +1025,7 @@ export function CODE_B89F21() {
   w16(x + sprite.general_purpose_42, (r16(x + sprite.general_purpose_42) + 1) & 0xffff);
   reg.a = 0x0003;
   set_anim_once_handle_dixie();
-  kong1DMove();
+  CODE_B89FB9();
 }
 
 /** $B89F30 — max x speed = ±$46 towards target x $44. */
@@ -1047,7 +1047,7 @@ export function CODE_B89F30() {
 export function CODE_B89F46() {
   CODE_B89F4F();
   if (reg.c) w16(reg.x + sprite.general_purpose_42, 0);
-  kong1DMove();
+  CODE_B89FB9();
 }
 
 /** $B89F4F — target x passed? stops the Kong. Carry = arrived. */
@@ -1078,7 +1078,7 @@ export function CODE_B89F62() {
   w16(x + sprite.general_purpose_42, (r16(x + sprite.general_purpose_42) + 1) & 0xffff);
   reg.a = 0x0006;
   set_anim_handle_dixie();
-  kong1DMove();
+  CODE_B89FB9();
 }
 
 /** $B89F8E — sub-state 4: airborne until falling below y $4A, then sub-state 5. */
@@ -1101,11 +1101,11 @@ export function CODE_B89F8E() {
   if (!(v & 0x8000) && v >= 0x0800) v = 0x0800;
   reg.a = v;
   w16(k + sprite.y_speed, v);
-  kong1DMove();
+  CODE_B89FB9();
 }
 
 /** CODE_B89FB9 (shared tail): accelerate, move, animate, return. */
-function kong1DMove() {
+function CODE_B89FB9() {
   reg.a = 0x000b;
   interpolate_x_velocity();
   apply_position_from_velocity();
