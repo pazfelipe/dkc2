@@ -544,7 +544,8 @@ static inline int oc_cycles(int cycles) {
 void snes_cpuIdle(void* mem, bool waiting) {
   Snes* snes = (Snes*) mem;
   dma_handleDma(snes->dma, 6);
-  int c = oc_cycles(6);
+  /* while halted in WAI no instructions run, so real time passes at full speed */
+  int c = waiting ? 6 : oc_cycles(6);
   if (c) snes_runCycles(snes, c);
 }
 

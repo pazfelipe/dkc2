@@ -55,3 +55,20 @@ const QUEUE_SOUND_EFFECT = L("queue_sound_effect");
 export function queue_sound_effect() {
   jslLabel(QUEUE_SOUND_EFFECT);
 }
+
+const TRANSITION_SONG = L("transition_song");
+/** `JSL transition_song` (A = song transition id). */
+export function transition_song() {
+  jslLabel(TRANSITION_SONG);
+}
+
+const GET_SPRITE_TERRAIN_INFO_DEFINE_Y = L("get_sprite_terrain_info_define_y");
+/** `JSL get_sprite_terrain_info_define_y` (A = y position, X = sprite). */
+export function get_sprite_terrain_info_define_y() {
+  jslLabel(GET_SPRITE_TERRAIN_INFO_DEFINE_Y);
+}
+
+/** Override the generated return mode of routines (used when original code traps into them). */
+export function setReturnMode(mode: number, names: string[]) {
+  for (const n of names) setRetMode(L(n), mode);
+}
