@@ -124,7 +124,7 @@ export function CODE_B5F3E9() {
   // $B5F463
   if (g(x, LEFT) === 0xffff) return; // end marker
   if (g(x, TOP) < minY) {
-    let l = g(x, LINK_A);
+    const l = g(x, LINK_A);
     if (!neg(l)) {
       x = l;
       if (g(x, LEFT) >= minX) return store(x);
@@ -135,7 +135,6 @@ export function CODE_B5F3E9() {
     const t = g(x, TOP);
     if (t < g(x, TOP - 0x10)) return;
     if (t < minY) store(x);
-    void l;
     return;
   }
   // $B5F496

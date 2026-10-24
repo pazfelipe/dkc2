@@ -20,7 +20,7 @@
  * above (2 bytes), $9428 neighbours below (2 bytes). A neighbour byte N refers to the region at
  * offset N*2; offset 0 is "no region".
  */
-import { r8, w8, r16, w16, rom16, bus16, io8, io16, ioR16 } from "../../core/mem";
+import { r8, r16, w16, rom16, bus16, io8, io16, ioR16 } from "../../core/mem";
 import { reg, register, callPtr } from "../../core/cpu";
 import { setRetMode, RET_RTS } from "../../core/hybrid";
 import { L, R, CPU, C, level } from "../../core/sym";
@@ -1433,7 +1433,6 @@ register({
   CODE_B5E4AA,
 });
 
-void w8;
 
 // the generated stubs guess RTL for these; they return with RTS
 for (const n of ["CODE_B5E3D1", "CODE_B5E3D2", "CODE_B5E3D3", "CODE_B5E3D4", "CODE_B5E3D5", "CODE_B5EA3C"]) setRetMode(L(n), RET_RTS);
