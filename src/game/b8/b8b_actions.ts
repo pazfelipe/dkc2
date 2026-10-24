@@ -122,7 +122,9 @@ export function CODE_B8BAC6() {
 
 /** `LDA $92 : ASL A : TAX : JMP (table,x)` */
 function dispatch(table: number) {
-  reg.a = (r16(0x92) << 1) & 0xffff;
+  const v = r16(0x92);
+  reg.c = (v & 0x8000) !== 0; // carry out of the ASL
+  reg.a = (v << 1) & 0xffff;
   reg.x = reg.a;
   callPtr(0xb8, rom16(table + reg.x));
 }

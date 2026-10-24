@@ -24,6 +24,7 @@ export function record_highest_y_position() {
     w16(0x0935, reg.a);
     return;
   }
+  reg.c = reg.a >= r16(0x0935);
   if (mi(reg.a, r16(0x0935))) w16(0x0935, reg.a);
 }
 
@@ -40,15 +41,20 @@ export function handle_player_pit_death() {
   const x = cur();
   reg.x = x;
   reg.a = (sr(x, S.y_position) - r16(R.screen_scroll_y_position)) & 0xffff;
+  reg.c = reg.a >= 0x0120;
   if (pl(reg.a, 0x0120)) return CODE_B8B586();
-  if (sr(x, S.terrain_interaction) & 0x0080) return CODE_B8B56E();
-  if (!(sr(x, S.terrain_attributes) & 0x0100)) return CODE_B8B5A6();
+  reg.a = sr(x, S.terrain_interaction) & 0x0080;
+  if (reg.a) return CODE_B8B56E();
+  reg.a = sr(x, S.terrain_attributes) & 0x0100;
+  if (!reg.a) return CODE_B8B5A6();
   reg.a = sr(x, S.terrain_interaction) & 0x1001;
+  reg.c = reg.a >= 0x0001;
   if (reg.a !== 0x0001) return CODE_B8B584();
   if (r16(0x0d54) & 0x8000) return CODE_B8B56E();
   reg.a = r16(R.water_current_y_velocity);
   if (!(reg.a & 0x8000)) return CODE_B8B56E();
-  if (reg.a < 0x9000) return CODE_B8B5A6();
+  reg.c = reg.a >= 0x9000;
+  if (!reg.c) return CODE_B8B5A6();
   CODE_B8B56E();
 }
 /** $B8B56E — instant death (unless invincible): spawn the death effect, interaction $23. */

@@ -186,14 +186,17 @@ export function CODE_B8B8AB() {
   const x = cur();
   reg.x = x;
   reg.a = sr(x, S.terrain_attributes) & 0x0007;
+  reg.c = reg.a >= 0x0006;
   if (reg.a !== 0x0006) {
     reg.a = sr(x, S.ground_y_position);
     if (!(reg.a & 0x8000)) {
       reg.a = (reg.a - sr(x, S.y_position)) & 0xffff;
+      reg.c = reg.a >= 0x0004;
       if (mi(reg.a, 0x0004)) return;
     }
     // .CODE_B8B8C4
     reg.a = sr(x, S.terrain_interaction) & 0x0101;
+    reg.c = reg.a >= 0x0100;
     if (reg.a !== 0x0100) return;
   }
   // .CODE_B8B8CF
