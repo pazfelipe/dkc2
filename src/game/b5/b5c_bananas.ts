@@ -13,6 +13,7 @@
  */
 import { r8, w8, r16, w16, rom8, rom16, bus16, busW16, io8, io16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
+import { setRetMode, RET_RTS } from "../../core/hybrid";
 import { L, R, C, WRAM } from "../../core/sym";
 import { request_palette_direct_global } from "../../gen/routines";
 import { queue_sound_effect } from "./b5c_common";
@@ -729,7 +730,8 @@ export function CODE_B5F109() {
   // $B5F36F
   w16(FLY_COUNT, 0xfffe);
   w16(0x0d36, 0x0001);
-  w16(0x0d32, r16(R.active_kong_sprite));
+  // `LDA active_kong_sprite` runs with DB=$7F here, so it actually reads $7F0593
+  w16(0x0d32, r16(0x7f0000 | R.active_kong_sprite));
   w16(0x0d38, 0);
 }
 
@@ -834,7 +836,25 @@ function sortLinks() {
   }
 }
 
+/** $B5F3E3-$B5F3E8: shift helpers dispatched through DATA_B5F3AD (A >>= 5..0). */
+const shiftHelper = (n: number) => () => {
+  reg.a = (reg.a & 0xffff) >> n;
+};
+export const CODE_B5F3E3 = shiftHelper(5);
+export const CODE_B5F3E4 = shiftHelper(4);
+export const CODE_B5F3E5 = shiftHelper(3);
+export const CODE_B5F3E6 = shiftHelper(2);
+export const CODE_B5F3E7 = shiftHelper(1);
+export const CODE_B5F3E8 = shiftHelper(0);
+
 register({
+  CODE_B5F3E3,
+  CODE_B5F3E4,
+  CODE_B5F3E5,
+  CODE_B5F3E6,
+  CODE_B5F3E7,
+  CODE_B5F3E8,
+  CODE_B5F77A,
   CODE_B5F0FD,
   CODE_B5F3E9,
   CODE_B5F4C4,
@@ -848,3 +868,6 @@ register({
   CODE_B5F9F5,
   CODE_B5F109,
 });
+
+// the generated stubs guess RTL for these; they return with RTS
+for (const n of ["CODE_B5F3E3", "CODE_B5F3E4", "CODE_B5F3E5", "CODE_B5F3E6", "CODE_B5F3E7"]) setRetMode(L(n), RET_RTS);

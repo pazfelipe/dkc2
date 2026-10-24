@@ -3,4 +3,5 @@ import "./b3/sprite_handler";
 import "./b5/b5c_bananas";
 import "./b5/b5c_camera";
 import "./b5/b5c_common";
+import "./b5/b5c_isle";
 import "./b80/screen_fade";

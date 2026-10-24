@@ -22,6 +22,7 @@
  */
 import { r8, w8, r16, w16, rom16, bus16, io8, io16, ioR16 } from "../../core/mem";
 import { reg, register, callPtr } from "../../core/cpu";
+import { setRetMode, RET_RTS } from "../../core/hybrid";
 import { L, R, CPU, C, level } from "../../core/sym";
 import { get_level_number } from "../../gen/routines";
 
@@ -1159,6 +1160,19 @@ const LEVEL_REGIONS_END = L("DATA_FD934F");
 const ZERO_FILL = L("zero_fill");
 const SHIFT_ROUTINE_END = L("CODE_B5E3D6") & 0xffff;
 
+/** $B5E3D1-$B5E3D6: shift helpers dispatched through DATA_B5E389 (A >>= n, AND #$1FFC, ASL). */
+const shiftHelper = (n: number) => () => {
+  let a = reg.a & 0xffff;
+  for (let i = 0; i < n; i++) a >>= 1;
+  reg.a = ((a & 0x1ffc) << 1) & 0xffff;
+};
+export const CODE_B5E3D1 = shiftHelper(5);
+export const CODE_B5E3D2 = shiftHelper(4);
+export const CODE_B5E3D3 = shiftHelper(3);
+export const CODE_B5E3D4 = shiftHelper(2);
+export const CODE_B5E3D5 = shiftHelper(1);
+export const CODE_B5E3D6 = shiftHelper(0);
+
 /** $B5E3D1-$B5E3D6 (JMP ($0034)): A >>= (5..0), then AND #$1FFC and ASL. */
 function regionShift(a: number): number {
   const n = SHIFT_ROUTINE_END - r16(0x0034);
@@ -1375,6 +1389,12 @@ export function CODE_B5E411() {
 }
 
 register({
+  CODE_B5E3D1,
+  CODE_B5E3D2,
+  CODE_B5E3D3,
+  CODE_B5E3D4,
+  CODE_B5E3D5,
+  CODE_B5E3D6,
   CODE_B5E0E2,
   CODE_B5E3DB,
   CODE_B5E411,
@@ -1414,3 +1434,6 @@ register({
 });
 
 void w8;
+
+// the generated stubs guess RTL for these; they return with RTS
+for (const n of ["CODE_B5E3D1", "CODE_B5E3D2", "CODE_B5E3D3", "CODE_B5E3D4", "CODE_B5E3D5", "CODE_B5EA3C"]) setRetMode(L(n), RET_RTS);
