@@ -297,12 +297,16 @@ export function get_box_clipping() {
   if (oam & 0x8000) {
     const bottom = (py - hitbox16(box + 2)) & 0xffff;
     w16(dp + rel.bottom, bottom);
-    reg.a = (bottom - hitbox16(box + 6)) & 0xffff;
+    const h = hitbox16(box + 6);
+    reg.a = (bottom - h) & 0xffff;
+    reg.c = bottom >= h; // carry of the final SBC
     w16(dp + rel.top, reg.a);
   } else {
     const top = (py + hitbox16(box + 2)) & 0xffff;
     w16(dp + rel.top, top);
-    reg.a = (top + hitbox16(box + 6)) & 0xffff;
+    const sum = top + hitbox16(box + 6);
+    reg.a = sum & 0xffff;
+    reg.c = sum > 0xffff; // carry of the final ADC
     w16(dp + rel.bottom, reg.a);
   }
 }
