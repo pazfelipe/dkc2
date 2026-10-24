@@ -454,6 +454,7 @@ function slopeSlide(table: number) {
   reg.x = x;
   const contact = r16(x + sprite.terrain_interaction) & 0x0011;
   reg.c = contact >= 0x0001;
+  reg.a = contact;
   if (contact !== 0x0001) {
     // .standing_on_sprite: not standing on actual terrain, no slip
     w16(x + sprite.unknown_2C, 0);
