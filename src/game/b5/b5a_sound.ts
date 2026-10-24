@@ -368,7 +368,10 @@ export function play_high_priority_sound() {
   const id = reg.a & 0xff;
   const channel = (reg.a >> 8) & 0x0f;
   w8(SOUND_EFFECT_BUFFER + channel, id);
-  const bit = rom8(INDEX_TO_BIT + channel);
+  // `LDA .index_to_bit,x` is absolute: it reads the data bank, and this entry does not set DB.
+  // Called directly (JSL) from bank $80 code it reads $80:80CD+x instead of the table (a
+  // bug of the original that decides which channel bit actually gets set/cleared).
+  const bit = bus8((((reg.db & 0xff) << 16) + (INDEX_TO_BIT & 0xffff) + channel) & 0xffffff);
   const used = r8(R.used_sound_effect_channels);
   w8(R.used_sound_effect_channels, id === 0 ? used & ~bit : used | bit);
   reg.x = (channel << 8) | r8(SOUND_EFFECT_BUFFER + channel);
@@ -384,7 +387,10 @@ export function play_queued_sound_effect() {
   w16(SPC_COMMAND_BUFFER + x, 0);
   if (sound & 0x8000) {
     reg.a = sound & 0x7fff;
+    const db = reg.db;
+    reg.db = 0xb5; // PHK : PLB at the top of this routine
     play_high_priority_sound();
+    reg.db = db;
   } else {
     play_low_priority_sound(sound);
   }

@@ -441,8 +441,9 @@ export function CODE_B59F40() {
 }
 
 /**
- * $B5A8DA — one bubble pass forward and one backward over sprite_render_table, ordering the
- * sprites by render_order_mirror (higher first... then lower values move to the front).
+ * $B5A8DA — one bubble pass forward and one backward over sprite_render_table (25 sprite
+ * pointers), moving higher render_order_mirror values towards the front: earlier OAM entries are
+ * drawn on top. The table is only partially sorted per frame; repeated frames converge.
  */
 export function sort_sprite_render_orders() {
   const table = R.sprite_render_table;
