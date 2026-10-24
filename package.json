@@ -1,0 +1,20 @@
+{
+  "name": "dkc2-remake",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Study port of Donkey Kong Country 2 game logic to TypeScript. Requires your own ROM (USA Rev 1).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "gen": "python3 -I tools/gen_symbols.py",
+    "hw": "sh hw/build.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "tsx": "^4.19.2",
+    "@types/node": "^22.9.0"
+  }
+}
