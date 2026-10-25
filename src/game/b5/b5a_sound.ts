@@ -341,8 +341,12 @@ function clear_sound_buffers() {
 export function queue_sound_effect() {
   const sound = reg.a & 0xffff;
   let x = r16(R.next_sound_effect_slot);
+  const last = r16(SPC_COMMAND_BUFFER + x);
+  // CMP spc_command_buffer,x is the routine's only carry change, and callers can observe it
+  // (e.g. the Kong family screens' random text, CODE_B4C175, rotates the carry into its seed)
+  reg.c = sound >= last;
   // the same effect twice in a row is only queued once
-  if (sound !== r16(SPC_COMMAND_BUFFER + x)) {
+  if (sound !== last) {
     x = (x + 2) & 0x000e;
     if (r16(SPC_COMMAND_BUFFER + x) === 0) {
       // otherwise the buffer is full and the effect is dropped
