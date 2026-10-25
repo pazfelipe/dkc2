@@ -8,6 +8,7 @@ import { attachKeyboard, readPad } from "./platform/input";
 import { loadStoredRom, storeRom, sha256, normalizeRom, EXPECTED_SHA256, loadBlob, storeBlob } from "./platform/romstore";
 import { bindMachine } from "./core/mem";
 import { boot, frame, frameHooks } from "./game/machine";
+import { hdScreenActive, setSplit, drawHdScreen } from "./platform/hdscreen";
 import { HD_SCALE, snapshotDiddy, hideDiddyOam, drawDiddyHd, type HdSnapshot } from "./platform/hdsprites";
 import { fallbackStats } from "./core/hybrid";
 import { portedNames } from "./core/cpu";
@@ -47,7 +48,10 @@ async function start(rom: Uint8Array) {
   frameHooks.preNmi = () => {
     pending = hdOnRef.v ? snapshotDiddy() : null;
   };
+  let screenHd = false;
   frameHooks.preRender = () => {
+    screenHd = hdOnRef.v && hdScreenActive();
+    setSplit(screenHd);
     shown = pending && hideDiddyOam(pending, ghost.v) ? pending : null;
   };
   const toast = (msg: string) => {
@@ -94,7 +98,7 @@ async function start(rom: Uint8Array) {
     if (e.code === "KeyP") paused = !paused;
     if (e.code === "KeyH") {
       hdOnRef.v = !hdOnRef.v;
-      toast(hdOnRef.v ? "HD Diddy on" : "HD Diddy off (original sprite)");
+      toast(hdOnRef.v ? "HD on" : "HD off (original graphics)");
     }
   });
   const unlock = () => audio.start();
@@ -105,7 +109,8 @@ async function start(rom: Uint8Array) {
     image.data.set(hw.frameRGBA());
     baseCtx.putImageData(image, 0, 0);
     ctx2d.imageSmoothingEnabled = false;
-    ctx2d.drawImage(base, 0, 0, 256 * HD_SCALE, 224 * HD_SCALE);
+    if (screenHd) drawHdScreen(ctx2d, hw.ex.hw_brightness());
+    else ctx2d.drawImage(base, 0, 0, 256 * HD_SCALE, 224 * HD_SCALE);
     if (shown) drawDiddyHd(ctx2d, shown, hw.ex.hw_brightness(), ghost.v ? 0.5 : 1);
   };
   if (import.meta.env.DEV)

@@ -33,3 +33,11 @@ before the PPU draws the frame, so nothing else in the game changes. `npx tsx te
 <state> <frames> <pad>` checks the overlay lands exactly where the game put the chunks.
 Limitations: it is algorithmic upscaling (no new art), and the HD sprite is drawn above every
 layer, so foreground objects that should pass in front of Diddy (ropes, some scenery) end up behind him.
+
+## HD title screen
+
+`src/platform/hdscreen.ts`. The title art is BG1 on the main screen; the chest twinkles are sprites
+on the sub screen added by color math. The PPU glue (`hw_hd_split`, in `hw/lakesnes/ppu.c`) outputs
+the background without sprites and the sprite pixels separately, before brightness. The background
+is upscaled 4x with xBRZ once (it is static) and the twinkles are drawn at original resolution with
+additive blending, so they sparkle exactly as on the console. H toggles all HD graphics.
