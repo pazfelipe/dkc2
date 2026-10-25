@@ -192,3 +192,7 @@ tricks, self-modifying code, timing dependencies, suspected disassembly mislabel
   `src/game/b80/b80a_util.ts` with the cost measured on the original, or the frames regression
   drifts by a frame after loads. Example: `calculate_completion_percentage` (1.78M cycles).
 - **`tools/gen_index.py` keeps disabled modules disabled now** (`DISABLED` table in the script).
+- **Flags that outlive a routine.** The RNG (`CODE_B4C175`) rotates the incoming carry into its seed,
+  and on the Kong family screens the carry even survives from one frame to the next (the NMI never
+  returns with RTI). So a port must leave C exactly as the original does on exit whenever a later
+  RNG call can see it (bugs found: `queue_sound_effect`, `CODE_B59F40`). Test with `--ret c`.

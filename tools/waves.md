@@ -51,6 +51,12 @@ branch; read `git log master..HEAD` first". Merge into master when each reports 
 Open bug: src/game/b5/b5a_sound.ts (ported SPC upload) hangs the boot at real APU speed in the
 browser; it is disabled in src/game/index.ts until fixed.
 
+## STATUS 2026-10-25 14:00: code migration of worlds 1-2 complete
+All waves merged (1, 2, 3, final, fixes). Across 99 valid test states no original routine runs; the
+frame regressions listed in the final report are identical to the original. Not ported (never
+reached in worlds 1-2): boss_command_code_01 (unused), _03, _17, _1D, _1E, _1F (other bosses),
+world 3+ / credits content.
+
 ## BACKLOG (user, 2026-10-25): run 100% without the ROM — after the code migration is complete
 Goal: the game runs with no ROM at all, so every piece (logic AND data) is readable/editable in
 the repo. Learning purpose; the repo stays PRIVATE because extracted assets are Nintendo/Rare's.
