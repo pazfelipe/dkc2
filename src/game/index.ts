@@ -21,6 +21,13 @@ import "./b3/b3c_necky_kannon";
 import "./b3/b3c_pickups";
 import "./b3/b3c_platforms";
 import "./b3/b3c_puftup";
+import "./b3/b3d_barrel_cannon";
+import "./b3/b3d_barrel_kong";
+import "./b3/b3d_checkpoint";
+import "./b3/b3d_common";
+import "./b3/b3d_exit_wall";
+import "./b3/b3d_misc";
+import "./b3/b3d_timer";
 import "./b3/sprite_handler";
 import "./b5/b5a_level_stream";
 // import "./b5/b5a_sound"; // disabled: boot hangs at real APU speed (under investigation)
