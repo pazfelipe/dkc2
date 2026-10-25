@@ -54,10 +54,34 @@ export class AudioOut {
     this.node = node;
   }
 
-  push(samples: Int16Array) {
-    if (!this.node) return;
+  /**
+   * Samples in emulated-time order, waiting to be played. A frame that spans several VBlanks
+   * (loading between screens) produces many frames' worth of sound at once; the queue plays it out
+   * in real time while the following frames "pass" (see machine.ts lag frames).
+   */
+  private queue: Float32Array[] = [];
+  private queued = 0;
+
+  enqueue(samples: Int16Array) {
+    if (!this.node || !samples.length) return;
     const f = new Float32Array(samples.length);
     for (let i = 0; i < samples.length; i++) f[i] = samples[i] / 32768;
-    this.node.port.postMessage(f, [f.buffer]);
+    this.queue.push(f);
+    this.queued += f.length >> 1;
+    // never let the backlog exceed ~1 s (e.g. the tab was in the background)
+    while (this.queued > 32040 && this.queue.length > 1) this.queued -= this.queue.shift()!.length >> 1;
+  }
+
+  /** Keep ~150 ms buffered in the worklet (covers the longest loading frames). */
+  pump() {
+    if (!this.node) return;
+    let room = 4800 - this.buffered;
+    while (room > 0 && this.queue.length) {
+      const f = this.queue.shift()!;
+      this.queued -= f.length >> 1;
+      room -= f.length >> 1;
+      this.buffered += f.length >> 1;
+      this.node.port.postMessage(f, [f.buffer]);
+    }
   }
 }

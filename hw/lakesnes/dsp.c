@@ -6,6 +6,10 @@
 #include <stdbool.h>
 
 #include "dsp.h"
+
+#define DSP_CAPTURE_MASK ((1 << 17) - 1)
+int16_t dsp_capture[(1 << 17) * 2];
+uint32_t dsp_capture_w = 0;
 #include "apu.h"
 #include "statehandler.h"
 
@@ -200,6 +204,10 @@ void dsp_cycle(Dsp* dsp) {
     dsp->sampleOutR = 0;
   }
   // put final sample in the samplebuffer
+  // port addition: keep every output sample, so frames that span several VBlanks (loading) lose nothing
+  dsp_capture[(dsp_capture_w & DSP_CAPTURE_MASK) * 2] = dsp->sampleOutL;
+  dsp_capture[(dsp_capture_w & DSP_CAPTURE_MASK) * 2 + 1] = dsp->sampleOutR;
+  dsp_capture_w++;
   dsp->sampleBuffer[(dsp->sampleOffset & 0x3ff) * 2] = dsp->sampleOutL;
   dsp->sampleBuffer[(dsp->sampleOffset++ & 0x3ff) * 2 + 1] = dsp->sampleOutR;
 }
