@@ -72,7 +72,7 @@ export function spriteTail(addr: number) {
  * `JMP sprite_return_handle_despawn` ($B38000): `JSL CODE_BBBB99` (despawn the sprite once it
  * has been off screen long enough), then back to the sprite handler.
  */
-export function despawnReturn() {
+export function despawnReturn(): void {
   const impl = implAt(SPRITE_RETURN_HANDLE_DESPAWN);
   if (impl) return impl();
   CODE_BBBB99();

@@ -29,7 +29,7 @@ const DATA_FF0214 = L("DATA_FF0214") & 0xffff;
 // timer, $48 index of the reward graphic, $4A timer until the prize drops.
 
 /** $B3A0C8 — the prize above the goal target, cycling through the possible rewards. */
-export function level_goal_prize_main() {
+export function level_goal_prize_main(): void {
   level_goal_prop_check_parent();
   if (reg.c) {
     delete_sprite_handle_deallocation();
@@ -50,7 +50,7 @@ export function level_goal_prize_main() {
 }
 
 /** .init: start the reward sequence. */
-function prizeInit() {
+function prizeInit(): void {
   const x = cur();
   inc(x, sprite.state);
   wr(x, 0x44, 0);
@@ -59,7 +59,7 @@ function prizeInit() {
 }
 
 /** .idle: when the display timer runs out, show the next reward (graphic + palette). */
-function prizeIdle() {
+function prizeIdle(): void {
   prizeUpdateRewardDisplay();
   if (!reg.c) return;
   let x = cur();
@@ -72,14 +72,14 @@ function prizeIdle() {
 }
 
 /** .state_2 (set by the goal when a Kong hit it): wait 15 frames before dropping. */
-function prizeTriggered() {
+function prizeTriggered(): void {
   const x = cur();
   inc(x, sprite.state);
   wr(x, 0x4a, 0x000f);
 }
 
 /** .wait_for_drop */
-function prizeWaitForDrop() {
+function prizeWaitForDrop(): void {
   const x = cur();
   if (isNeg(dec(x, 0x4a))) {
     inc(x, sprite.state);
@@ -89,7 +89,7 @@ function prizeWaitForDrop() {
 }
 
 /** .drop: fall until the prize lands. */
-function prizeDrop() {
+function prizeDrop(): void {
   apply_sprite_gravity();
   process_terrain_interaction_global();
   const x = cur();
@@ -102,7 +102,7 @@ function prizeDrop() {
 }
 
 /** .spawn_reward: the prize sprite turns itself into the reward item it shows. */
-function prizeSpawnReward() {
+function prizeSpawnReward(): void {
   let x = cur();
   w16(R.alternate_sprite, x);
   reg.a = rd(x, sprite.oam_property);
@@ -119,7 +119,7 @@ function prizeSpawnReward() {
 }
 
 /** .update_reward_display: carry set when the next reward of the sequence was loaded. */
-function prizeUpdateRewardDisplay() {
+function prizeUpdateRewardDisplay(): void {
   const x = cur();
   reg.x = x;
   if (dec(x, 0x46) !== 0) {
@@ -139,13 +139,13 @@ function prizeUpdateRewardDisplay() {
 }
 
 /** $B3A1B2 — the goal pole: only checks that its goal still exists. */
-export function level_goal_pole_main() {
+export function level_goal_pole_main(): void {
   level_goal_prop_check_parent();
   if (reg.c) delete_sprite_handle_deallocation();
 }
 
 /** $B3A1C1 — the barrel under the goal target; flies up and breaks when the goal is hit. */
-export function level_goal_barrel_main() {
+export function level_goal_barrel_main(): void {
   level_goal_prop_check_parent();
   if (reg.c) {
     delete_sprite_handle_deallocation();
@@ -170,7 +170,7 @@ export function level_goal_barrel_main() {
 }
 
 /** .move_state: accelerate (capped at $0800), never below the rest height, break $60 above it. */
-function barrelMove() {
+function barrelMove(): void {
   const x = cur();
   reg.x = x;
   let speed = (0x0050 + rd(x, sprite.y_speed)) & 0xffff;
@@ -187,7 +187,7 @@ function barrelMove() {
 }
 
 /** $B3A227 — carry clear if the prop's parent ($42) is still the level goal. */
-export function level_goal_prop_check_parent() {
+export function level_goal_prop_check_parent(): void {
   const x = cur();
   reg.x = x;
   reg.y = rd(x, 0x42);
@@ -197,7 +197,7 @@ export function level_goal_prop_check_parent() {
 }
 
 /** $B3A236 */
-export function CODE_B3A236() {
+export function CODE_B3A236(): void {
   reg.c = true;
 }
 
@@ -205,7 +205,7 @@ export function CODE_B3A236() {
 // $4A goal Y position from CODE_B8D47C.
 
 /** $B3A238 — the level goal target. */
-export function level_goal_main() {
+export function level_goal_main(): void {
   const x = cur();
   w16(R.current_sprite_constants, rd(x, sprite.constants_address));
   const state = rd(x, sprite.state);
@@ -230,7 +230,7 @@ function spawnProp(id: number): number {
 }
 
 /** .init_state: remember the ground height and spawn barrel, prize and pole. */
-function goalInit() {
+function goalInit(): void {
   let x = cur();
   reg.x = x;
   CODE_B8D47C();
@@ -251,7 +251,7 @@ function goalInit() {
 }
 
 /** .idle_state: wait for a falling Kong to land on the target. */
-function goalIdle() {
+function goalIdle(): void {
   const kong = r16(R.active_kong_sprite);
   reg.x = kong;
   if (rd(kong, sprite.terrain_interaction) & 0x0101) return despawnReturn();
@@ -291,7 +291,7 @@ function goalIdle() {
 }
 
 /** .check_if_should_drop_prize: a high fall ($68+ px) launches the barrel fast and drops the prize. */
-function goalCheckIfShouldDropPrize() {
+function goalCheckIfShouldDropPrize(): void {
   const x = cur();
   reg.x = x;
   const fall = (rd(x, sprite.y_position) - r16(0x0935)) & 0xffff;
