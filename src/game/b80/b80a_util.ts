@@ -66,8 +66,12 @@ const OVERCLOCK_SHIFT: number =
  * takes on the CPU, so screen inits span the same number of (lag) frames as the original.
  * Ordinary short code is treated as instantaneous like all ported logic.
  */
+let cpuTimeAcc = 0;
 export function cpuTime(masterCycles: number) {
-  const c = Math.floor(masterCycles / 2 ** OVERCLOCK_SHIFT);
+  // like the reference CPU's overclock accumulator: keep the fraction for the next call
+  cpuTimeAcc += masterCycles;
+  const c = Math.floor(cpuTimeAcc / 2 ** OVERCLOCK_SHIFT);
+  cpuTimeAcc -= c * 2 ** OVERCLOCK_SHIFT;
   if (c > 0) hw.idle(c);
 }
 

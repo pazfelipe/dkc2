@@ -49,6 +49,19 @@ EXPORT uint16_t* hw_vram(void) { return snes->ppu->vram; }
 EXPORT uint16_t* hw_cgram(void) { return snes->ppu->cgram; }
 EXPORT uint16_t* hw_oam(void) { return snes->ppu->oam; }
 EXPORT uint8_t* hw_high_oam(void) { return snes->ppu->highOam; }
+extern int ppu_hd_split;
+extern uint16_t ppu_hd_bg[];
+extern uint16_t ppu_hd_obj[];
+EXPORT void hw_hd_split(int on) { ppu_hd_split = on; }
+EXPORT uint16_t* hw_hd_bg(void) { return ppu_hd_bg; }
+EXPORT uint16_t* hw_hd_obj(void) { return ppu_hd_obj; }
+extern uint16_t ppu_hd_add[];
+EXPORT uint16_t* hw_hd_add(void) { return ppu_hd_add; }
+extern int ppu_hd_occl_on;
+extern uint8_t ppu_hd_occl[];
+EXPORT void hw_hd_occl_on(int on) { ppu_hd_occl_on = on; }
+EXPORT uint8_t* hw_hd_occl(void) { return ppu_hd_occl; }
+EXPORT int hw_brightness(void) { return snes->ppu->forcedBlank ? 0 : snes->ppu->brightness; }
 EXPORT uint8_t* hw_aram(void) { return snes->apu->ram; }
 EXPORT int hw_vpos(void) { return snes->vPos; }
 EXPORT int hw_hpos(void) { return snes->hPos; }
@@ -110,6 +123,24 @@ EXPORT int16_t* hw_audio(int samples) {
   dsp_getSamples(snes->apu->dsp, audio_buf, samples);
   return audio_buf;
 }
+
+/* Every sample the DSP produced since the last call (up to 4 s), in order. */
+extern int16_t dsp_capture[];
+extern uint32_t dsp_capture_w;
+static uint32_t capture_r = 0;
+static int16_t drain_buf[(1 << 17) * 2];
+EXPORT int hw_audio_drain(void) {
+  uint32_t n = dsp_capture_w - capture_r;
+  if (n > (1u << 17)) { capture_r = dsp_capture_w - (1u << 17); n = 1u << 17; }
+  for (uint32_t i = 0; i < n; i++) {
+    uint32_t k = (capture_r + i) & ((1u << 17) - 1);
+    drain_buf[i * 2] = dsp_capture[k * 2];
+    drain_buf[i * 2 + 1] = dsp_capture[k * 2 + 1];
+  }
+  capture_r += n;
+  return (int)n;
+}
+EXPORT int16_t* hw_audio_drain_buf(void) { return drain_buf; }
 
 /* APU port helpers used by the CPU-side sound driver */
 EXPORT uint8_t hw_apu_out(int port) {

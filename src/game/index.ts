@@ -8,7 +8,7 @@ import "./b3/b3d_misc";
 import "./b3/b3d_timer";
 import "./b3/sprite_handler";
 import "./b5/b5a_level_stream";
-import "./b5/b5a_sound";
+// import "./b5/b5a_sound"; // disabled: boot hangs at real APU speed (under investigation)
 import "./b5/b5a_sprite_render";
 import "./b5/b5c_bananas";
 import "./b5/b5c_camera";
