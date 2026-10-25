@@ -55,6 +55,8 @@ export function clear_wram_tables() {
     if (addr & 0x8000) break; // $FFFF terminator
     const words = rom16(y + wram_clear_table.size) >> 1;
     for (let i = 0; i < words; i++) w16((addr + i * 2) & 0xffff, 0);
+    // STZ dp,x / INX / INX / DEC / BNE per word, plus the per-table setup
+    cpuTime(words * 88 + 110);
   }
 }
 
@@ -77,10 +79,14 @@ export function set_unused_oam_offscreen() {
   let x = r16(0x70);
   if (x !== R.oam_attribute_table) {
     reg.a = 0xf0ff;
+    let n = 0;
     do {
       w16(x, 0xf0ff);
       x = (x + 4) & 0xffff;
+      n++;
     } while (x !== R.oam_attribute_table);
+    // STA dp,x / 4x INX / CPX / BNE per slot
+    cpuTime(n * 118);
   }
   reg.x = x;
 }
