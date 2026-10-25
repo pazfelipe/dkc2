@@ -176,3 +176,19 @@ tricks, self-modifying code, timing dependencies, suspected disassembly mislabel
 - Existing helpers to reuse instead of rewriting: `src/game/b8/b8a_common.ts`,
   `src/game/b8/b8b_common.ts`, `src/game/b9/b9_anim_util.ts`, `src/game/bb/bba_util.ts`,
   `src/game/b80/b80a_util.ts`.
+
+## Lessons from wave 2 (read this too)
+
+- **Bad test states:** `lvl_kk_bonus1`, `lvl_kk_bonus3`, `lvl_mm_bonus1..3`, `lvl_tt_bonus2`,
+  `lvl_gg_bonus1` hang in the SPC wait loop ($B58205) even on the original code (bonus rooms
+  entered straight from the map are not a natural path). Do not use them.
+- **Capturing rare paths:** `test/routine.ts capture` watches one label and its stepping drifts
+  from per-frame input timing. Wave-2 packages used traced-frame capture scripts that watch many
+  labels at once and can teleport the Kong / keep him invincible; see
+  `/tmp/claude-0/-home-claude/b7df779d-1463-5569-b3b2-4768ebee58d0/scratchpad/{be1,b3a,b3d,bbb}/`
+  (`mcap.mts`, `cap2.mts`, `cap.mts`). Reuse them (copy into your own scratch folder).
+- **Charge CPU time for heavy work.** If the original spends many frames' worth of CPU in a loop
+  (level loads, decoding columns, walking all level configs), use `cpuTime(masterCycles)` from
+  `src/game/b80/b80a_util.ts` with the cost measured on the original, or the frames regression
+  drifts by a frame after loads. Example: `calculate_completion_percentage` (1.78M cycles).
+- **`tools/gen_index.py` keeps disabled modules disabled now** (`DISABLED` table in the script).
