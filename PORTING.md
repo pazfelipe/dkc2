@@ -150,3 +150,29 @@ instructions in the traced scenarios — port executed ones first.
 End with: files created; routines ported with test results (`label: N/N vectors` or
 `untested`); routines in your range you did not port and why; anything surprising (stack
 tricks, self-modifying code, timing dependencies, suspected disassembly mislabels).
+
+## Lessons from wave 1 (read this)
+
+- **Sprite-return exits.** Routines that leave with `JML [sprite_return_address]` (sprite mains,
+  kong states, many sprite codes) must be tested with
+  `--jsr --stop sprite_handler_sprite_return,sprite_handler_time_stop_sprite_handler_sprite_return`.
+  Stubs whose generated return mode is 2 already stop there.
+- **Return modes of generated stubs can be wrong** (RTS vs RTL guessed from the label body).
+  Check the real exit and fix it with `setRetMode(L("label"), RET_RTS|RET_RTL|RET_SPRITE)` from
+  `src/core/hybrid.ts` in your module.
+- **`#label:` globals now have stubs** (`queue_sound_effect`, `get_sprite_terrain_info`, ...).
+- **Flags into original code:** `reg.c`, `reg.z`, `reg.n`, `reg.v` are all passed now. When the
+  original callee branches on flags left by the caller's last load, set them before the call.
+- **Time.** Ported code takes no time. Where the original spends a lot of CPU time in one go
+  (decompression, big clears, long loops) and that time decides on which frame things happen
+  (level loads), charge it: see `chargeOps` in `src/game/bb/bba_util.ts` and `cpuTime` in
+  `src/game/b80/b80a_util.ts`. Reuse them, do not write a third variant.
+- **Shared machine etiquette:** put your scratch scripts in your own subfolder of the scratchpad
+  (`scratchpad/<package>/`), and never `pkill` by a generic pattern — kill only PIDs you started.
+  The machine has 2 cores shared by everyone: keep frame tests short while iterating
+  (300–600 frames), run the long mandated one at the end.
+- **Test states** now cover every room of worlds 1 and 2: `lvl_<name>` (see
+  `test/make_level_states.ts` for the list), plus `b8a_two_kongs` (both Kongs present).
+- Existing helpers to reuse instead of rewriting: `src/game/b8/b8a_common.ts`,
+  `src/game/b8/b8b_common.ts`, `src/game/b9/b9_anim_util.ts`, `src/game/bb/bba_util.ts`,
+  `src/game/b80/b80a_util.ts`.
