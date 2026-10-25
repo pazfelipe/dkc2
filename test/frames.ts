@@ -29,7 +29,7 @@ const start = from ? new Uint8Array(readFileSync(`${STATES_DIR}/${from}.state`))
 hw.loadState(start);
 const ref: (ReturnType<typeof snap> | null)[] = [];
 // the original is "stable" at the end of a frame when its CPU idles in the WAI loop
-const IDLE = new Set([L("CODE_808636_CODE_808640") + 0x12, L("CODE_808636_CODE_808640") + 0x13, L("wait_for_next_nmi_wait_for_interrupt"), L("wait_for_next_nmi_wait_for_interrupt") + 1, 0x808d1c, 0x808d1d]); // last two: Kong family screens
+const IDLE = new Set([L("CODE_808636_CODE_808640") + 0x12, L("CODE_808636_CODE_808640") + 0x13, L("wait_for_next_nmi_wait_for_interrupt"), L("wait_for_next_nmi_wait_for_interrupt") + 1, 0x808d1c, 0x808d1d, 0xb5d447, 0xb5d448]); // + Kong family screens, world map
 const refFrames: Uint8Array[] = [];
 for (let f = 0; f < frames; f++) {
   hw.setInput(0, input(f));
