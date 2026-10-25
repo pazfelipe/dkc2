@@ -332,7 +332,7 @@ EXPORT int hw_emu_run_until(uint32_t target, int max_frames) {
   uint32_t start = snes->frames;
   for (;;) {
     uint32_t pc = ((uint32_t)snes->cpu->k << 16) | snes->cpu->pc;
-    if (pc == target) return 1;
+    if (pc == target || ((pc ^ target) == 0x800000 && (pc & 0x8000))) return 1; // FastROM mirror
     if ((int)(snes->frames - start) >= max_frames && snes->inVblank) return 0;
     cpu_runOpcode(snes->cpu);
   }
