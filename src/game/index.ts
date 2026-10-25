@@ -121,3 +121,8 @@ import "./be/be2_movement";
 import "./be/be2_movement_b";
 import "./be/be2_sprites";
 import "./be/be2_util";
+import "./be/w4_be_kackle";
+import "./be/w4_be_misc";
+import "./be/w4_be_race";
+import "./be/w4_be_skull_cart";
+import "./be/w4_be_util";
