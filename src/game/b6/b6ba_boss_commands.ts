@@ -34,7 +34,7 @@ const HIT_STAR = L("DATA_FF103A") & 0xffff;
 const KING_ZING_PATTERN_BANK = (L("king_zing_pattern_table") >> 16) & 0xff;
 
 /** Values pushed by one label and pulled by a later one of the same routine (PHY ... PLA). */
-const stk: number[] = [];
+export const stk: number[] = [];
 
 /** `LDA abs,y` with the current data bank: WRAM below $2000, else ROM/bus. */
 export function db16(a: number): number {
