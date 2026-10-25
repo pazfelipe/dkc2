@@ -50,14 +50,26 @@ const WRAM_TABLES = L("clear_wram_tables_wram_tables");
 
 /** $8088D2 — zero the sprite table, Kong control variables and other per-level tables. */
 export function clear_wram_tables() {
-  for (let y = WRAM_TABLES; ; y += 4) {
+  let x = reg.x;
+  let y = WRAM_TABLES;
+  for (; ; y += 4) {
     const addr = rom16(y + wram_clear_table.address);
-    if (addr & 0x8000) break; // $FFFF terminator
+    if (addr & 0x8000) {
+      // leaves A = the terminator word, X = one past the last cleared word, Y = terminator index
+      // (init_npc_screen_kongs relies on X)
+      reg.a = addr;
+      break;
+    }
     const words = rom16(y + wram_clear_table.size) >> 1;
     for (let i = 0; i < words; i++) w16((addr + i * 2) & 0xffff, 0);
+    x = (addr + words * 2) & 0xffff;
     // STZ dp,x / INX / INX / DEC / BNE per word, plus the per-table setup
     cpuTime(words * 88 + 110);
   }
+  reg.x = x;
+  reg.y = y & 0xffff;
+  reg.n = true;
+  reg.z = false;
 }
 
 /** $8088AB — hide every OAM slot. */
