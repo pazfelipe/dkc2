@@ -8,8 +8,6 @@
  * with xBRZ (only when it changes; on the title it is static) and the twinkles are drawn at the
  * original resolution with additive blending, exactly like the console mixes them.
  */
-// @ts-ignore no types shipped
-import { xbrzScale, xbrzColorFormat, xbrzConfig } from "xbrz-js";
 import { hw, r16 } from "../core/mem";
 import { L } from "../core/sym";
 import { HD_SCALE } from "./hdsprites";
@@ -22,12 +20,12 @@ interface SplitEx {
 const ex = () => hw.ex as unknown as SplitEx;
 const W = 256, H = 224;
 
-const RUN_TITLE_SCREEN = L("run_title_screen") & 0xffff;
 const NMI_POINTER = 0x0020;
+/** Screens whose background gets the HD treatment: static backgrounds only, since upscaling is costly. */
+const HD_SCREENS = new Set(["run_title_screen", "run_file_select", "run_game_mode_select"].map((n) => L(n) & 0xffff));
 
-/** Screens whose background gets the HD treatment (static backgrounds only: upscaling is costly). */
 export function hdScreenActive(): boolean {
-  return r16(NMI_POINTER) === RUN_TITLE_SCREEN;
+  return HD_SCREENS.has(r16(NMI_POINTER));
 }
 
 /** Ask the PPU for the split output while rendering the coming frame. */
@@ -45,26 +43,57 @@ function canvas(w: number, h: number) {
   return c;
 }
 
-let bgHash = -1;
-const bgCanvas = canvas(W * HD_SCALE, H * HD_SCALE);
 const opaque = canvas(W, H), additive = canvas(W, H);
 const opaqueImg = new ImageData(W, H), addImg = new ImageData(W, H);
-const cfg = xbrzConfig({});
 
-/** Draw the split frame onto a 4x context. */
-export function drawHdScreen(ctx: CanvasRenderingContext2D, brightness: number) {
+// upscaled backgrounds by content hash (menus flip between a few states: cursor, highlights)
+const cache = new Map<number, ImageBitmap>();
+const pending = new Set<number>();
+let worker: Worker | null = null;
+let nextId = 0;
+const idHash = new Map<number, number>();
+
+function request(hash: number, bg: Uint16Array) {
+  if (pending.has(hash)) return;
+  if (!worker) {
+    worker = new Worker(new URL("./xbrz.worker.ts", import.meta.url), { type: "module" });
+    worker.onmessage = async (e: MessageEvent<{ id: number; dst: Uint32Array }>) => {
+      const h = idHash.get(e.data.id)!;
+      idHash.delete(e.data.id);
+      pending.delete(h);
+      const img = new ImageData(new Uint8ClampedArray(e.data.dst.buffer as ArrayBuffer), W * HD_SCALE, H * HD_SCALE);
+      cache.set(h, await createImageBitmap(img));
+      if (cache.size > 16) {
+        const [k, v] = cache.entries().next().value!;
+        v.close();
+        cache.delete(k);
+      }
+    };
+  }
+  const src = new Uint32Array(W * H);
+  for (let i = 0; i < src.length; i++) src[i] = rgba(bg[i]) >>> 0;
+  const id = nextId++;
+  idHash.set(id, hash);
+  pending.add(hash);
+  worker.postMessage({ id, src, w: W, h: H, scale: HD_SCALE }, [src.buffer]);
+}
+
+/**
+ * Draw the split frame onto a 4x context. Returns false when the upscaled background is not ready
+ * yet (first time a screen state is seen); the caller then draws the normal frame.
+ */
+export function drawHdScreen(ctx: CanvasRenderingContext2D, brightness: number): boolean {
   const bg = new Uint16Array(hw.mem, ex().hw_hd_bg(), W * H);
   const obj = new Uint16Array(hw.mem, ex().hw_hd_obj(), W * H);
   let h = 2166136261;
   for (let i = 0; i < bg.length; i++) h = Math.imul(h ^ bg[i], 16777619);
-  if (h !== bgHash) {
-    bgHash = h;
-    const src = new Uint32Array(W * H);
-    for (let i = 0; i < src.length; i++) src[i] = rgba(bg[i]) >>> 0;
-    const dst = new Uint32Array(W * H * HD_SCALE * HD_SCALE);
-    xbrzScale(HD_SCALE, src, dst, W, H, xbrzColorFormat.argb, cfg);
-    bgCanvas.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(dst.buffer), W * HD_SCALE, H * HD_SCALE), 0, 0);
+  const bgImg = cache.get(h);
+  if (!bgImg) {
+    request(h, bg);
+    return false;
   }
+  cache.delete(h); // keep recently used entries at the end
+  cache.set(h, bgImg);
   const o32 = new Uint32Array(opaqueImg.data.buffer), a32 = new Uint32Array(addImg.data.buffer);
   let anyO = false, anyA = false;
   for (let i = 0; i < obj.length; i++) {
@@ -77,7 +106,7 @@ export function drawHdScreen(ctx: CanvasRenderingContext2D, brightness: number) 
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   if (brightness < 15) ctx.filter = `brightness(${brightness / 15})`;
-  ctx.drawImage(bgCanvas, 0, 0);
+  ctx.drawImage(bgImg, 0, 0);
   if (anyO) {
     opaque.getContext("2d")!.putImageData(opaqueImg, 0, 0);
     ctx.drawImage(opaque, 0, 0, W * HD_SCALE, H * HD_SCALE);
@@ -88,4 +117,5 @@ export function drawHdScreen(ctx: CanvasRenderingContext2D, brightness: number) 
     ctx.drawImage(additive, 0, 0, W * HD_SCALE, H * HD_SCALE);
   }
   ctx.restore();
+  return true;
 }

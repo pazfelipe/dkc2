@@ -109,8 +109,7 @@ async function start(rom: Uint8Array) {
     image.data.set(hw.frameRGBA());
     baseCtx.putImageData(image, 0, 0);
     ctx2d.imageSmoothingEnabled = false;
-    if (screenHd) drawHdScreen(ctx2d, hw.ex.hw_brightness());
-    else ctx2d.drawImage(base, 0, 0, 256 * HD_SCALE, 224 * HD_SCALE);
+    if (!screenHd || !drawHdScreen(ctx2d, hw.ex.hw_brightness())) ctx2d.drawImage(base, 0, 0, 256 * HD_SCALE, 224 * HD_SCALE);
     if (shown) drawDiddyHd(ctx2d, shown, hw.ex.hw_brightness(), ghost.v ? 0.5 : 1);
   };
   if (import.meta.env.DEV)
@@ -130,11 +129,12 @@ async function start(rom: Uint8Array) {
       acc -= step;
       if (!paused) {
         frame(readPad());
-        if (audio.buffered < 4000) audio.push(hw.audio(534).slice());
+        audio.enqueue(hw.drainAudio());
         frames++;
       }
       ran++;
     }
+    audio.pump();
     if (ran) present();
     if (now - fpsT > 1000) {
       fps = (frames * 1000) / (now - fpsT);

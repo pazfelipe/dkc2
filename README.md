@@ -41,3 +41,14 @@ on the sub screen added by color math. The PPU glue (`hw_hd_split`, in `hw/lakes
 the background without sprites and the sprite pixels separately, before brightness. The background
 is upscaled 4x with xBRZ once (it is static) and the twinkles are drawn at original resolution with
 additive blending, so they sparkle exactly as on the console. H toggles all HD graphics.
+The same split is used for the file select and game mode screens. Upscaling runs in a Web Worker
+(`src/platform/xbrz.worker.ts`) and results are cached by content, so a new menu state shows the
+original frame for a moment instead of stalling the game.
+
+## Audio across screen transitions
+
+Loading between screens (sound uploads, decompression) makes one game frame span many VBlanks.
+The DSP's own buffer only keeps the last ~32 ms, so the sound of those frames used to be lost and the
+same 17 ms chunk was replayed while the lag frames passed (the "stuck" music). The DSP now copies
+every sample into a 4 s capture ring (`hw_audio_drain`), and `AudioOut` queues it and plays it out in
+real time.

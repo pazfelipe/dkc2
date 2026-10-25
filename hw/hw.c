@@ -118,6 +118,24 @@ EXPORT int16_t* hw_audio(int samples) {
   return audio_buf;
 }
 
+/* Every sample the DSP produced since the last call (up to 4 s), in order. */
+extern int16_t dsp_capture[];
+extern uint32_t dsp_capture_w;
+static uint32_t capture_r = 0;
+static int16_t drain_buf[(1 << 17) * 2];
+EXPORT int hw_audio_drain(void) {
+  uint32_t n = dsp_capture_w - capture_r;
+  if (n > (1u << 17)) { capture_r = dsp_capture_w - (1u << 17); n = 1u << 17; }
+  for (uint32_t i = 0; i < n; i++) {
+    uint32_t k = (capture_r + i) & ((1u << 17) - 1);
+    drain_buf[i * 2] = dsp_capture[k * 2];
+    drain_buf[i * 2 + 1] = dsp_capture[k * 2 + 1];
+  }
+  capture_r += n;
+  return (int)n;
+}
+EXPORT int16_t* hw_audio_drain_buf(void) { return drain_buf; }
+
 /* APU port helpers used by the CPU-side sound driver */
 EXPORT uint8_t hw_apu_out(int port) {
   apu_runCycles(snes->apu, (int)snes->apuCatchupCycles);
