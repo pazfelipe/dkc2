@@ -3,6 +3,7 @@ import "./b3/sprite_handler";
 import "./b5/b5a_level_stream";
 import "./b5/b5a_sound";
 import "./b5/b5a_sprite_render";
+import "./b5/b5b_terrain";
 import "./b5/b5c_bananas";
 import "./b5/b5c_camera";
 import "./b5/b5c_common";
