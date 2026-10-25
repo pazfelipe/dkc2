@@ -283,7 +283,9 @@ export function spin_cat_o9_tails_with_kong() {
   const hold = (kong: number) => {
     reg.y = kong;
     sw(kong, sprite.x_position, sr(x, sprite.x_position) + dx);
-    sw(kong, sprite.y_position, sr(x, sprite.y_position) + dy);
+    const ny = sr(x, sprite.y_position) + dy;
+    reg.c = ny > 0xffff;
+    sw(kong, sprite.y_position, ny);
     sw(kong, sprite.y_speed, 0);
     const oam = sr(kong, sprite.oam_property);
     reg.a = (((flip ^ oam) & 0x4000) ^ oam) & 0xffff;
@@ -358,12 +360,17 @@ export function CODE_B3CF7F() {
 /** $B3CFE6 — carry clear when the Kong cannot be hurt/grabbed now (in a special state). */
 export function CODE_B3CFE6() {
   reg.c = false;
-  if (r16(R.current_interaction) === C.player_interaction_13) return;
+  reg.a = r16(R.current_interaction);
+  if (reg.a === C.player_interaction_13) return;
   const kong = r16(R.active_kong_sprite);
   reg.y = kong;
   const st = sr(kong, sprite.state);
+  reg.a = st;
   if (st === C.kong_state_48) return;
-  if (st === C.kong_state_12 && isNeg(sr(kong, sprite.y_speed) - 1)) return;
+  if (st === C.kong_state_12) {
+    reg.a = (sr(kong, sprite.y_speed) - 1) & 0xffff;
+    if (isNeg(reg.a)) return;
+  }
   reg.c = true;
 }
 
