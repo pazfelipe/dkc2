@@ -31,6 +31,8 @@ import "./b3/b3d_timer";
 import "./b3/sprite_handler";
 import "./b4/b4_hero";
 import "./b4/b4_map";
+import "./b4/b4_npc";
+import "./b4/b4_text";
 import "./b4/b4_util";
 import "./b5/b5a_level_stream";
 // import "./b5/b5a_sound"; // disabled: boot hangs at real APU speed (under investigation)
