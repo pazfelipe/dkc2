@@ -40,6 +40,8 @@ Keep everything else (Kongs, animals, items, barrels, cannons, hooks, ropes, bon
 Kong family NPCs, Klubba, world-1 enemies: Neek, Click-Clack, Klomp, Klobber, Kruncha, Kaboing,
 Klinger, Zinger, Flitter, Lockjaw, Flotsam, Shuri, Puftup, Krow).
 
+## RESUMED 2026-10-25 02:10: wave 2 agents restarted on their branches (same worktrees).
+
 ## PAUSED 2026-10-25 01:10 (user request)
 Wave 2 packages are paused, work committed on branches pkg/b5b, pkg/bbb, pkg/be1, pkg/be2,
 pkg/b3a, pkg/b3b, pkg/b3c, pkg/b3d (worktrees in /home/claude/wt/<pkg>). To resume: send the
