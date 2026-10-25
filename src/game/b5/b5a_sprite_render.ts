@@ -49,6 +49,8 @@ function loadHeader(dynamic: boolean): number {
 
 /** Y register after a tile renderer: offset just past the graphic's tile data. */
 let tileY = 0;
+/** Carry left by the failed "enough OAM entries left?" ADC when a tile renderer gives up. */
+let fullCarry = false;
 
 /**
  * The tile renderer shared by all variants (CODE_B59DE4, CODE_B5A24E, CODE_B5A3ED, CODE_B5A5A1,
@@ -62,8 +64,10 @@ function renderTiles(y: number, flipX: boolean, flipY: boolean): boolean {
   // enough OAM entries left for the 16x16 tiles? (entry index + count must stay below 128)
   const slot = r16(R.next_oam_slot);
   const q = slot >> 2;
-  if (!(((q & 0xff) + r8(0x36) + ((slot >> 1) & 1)) & 0x80)) {
+  const room = (q & 0xff) + r8(0x36) + ((slot >> 1) & 1);
+  if (!(room & 0x80)) {
     tileY = y;
+    fullCarry = room > 0xff;
     return false;
   }
   w8(0x56, ((q & 0xff) >> 2) & 0x1f); // high-table byte of this entry
@@ -107,9 +111,11 @@ function renderTiles(y: number, flipX: boolean, flipY: boolean): boolean {
   // the two groups of 8x8 tiles: small size, x bit 8 set per entry when needed
   for (const group of [0, 1]) {
     const countAddr = group === 0 ? 0x37 : 0x39;
-    if (!((((x >> 2) & 0xff) + r8(countAddr) + ((x >> 1) & 1)) & 0x80)) {
+    const room = ((x >> 2) & 0xff) + r8(countAddr) + ((x >> 1) & 1);
+    if (!(room & 0x80)) {
       w16(R.next_oam_slot, x);
       tileY = y;
+      fullCarry = room > 0xff;
       return false;
     }
     w8(0x34, (r8(countAddr + 1) + r8(0x32)) & 0xff); // first tile of the group
@@ -421,16 +427,25 @@ export function CODE_B59F40() {
   w8(0x56, (r8(R.next_oam_slot) >> 4) & 0x1f);
   w16(0x62, 0);
   w16(R.next_firework_sprite_buffer_slot, 0);
-  // CODE_B59F53: one iteration per render table slot
+  // CODE_B59F53: one iteration per render table slot.
+  // The carry this routine leaves is observable: the Kong family screens run their logic in the
+  // NMI and end the frame in a WAI loop, so the next frame starts with this frame's last carry
+  // (their random text choice, CODE_B4C175, rotates it into the seed). Both normal exits end
+  // with an equal CMP (carry set); the OAM-full exit keeps the carry of its 8-bit ADC.
+  reg.c = true;
   for (;;) {
     if (r16(R.next_oam_slot) === 0x0400) {
-      // OAM completely full on entry to a slot
+      // OAM completely full on entry to a slot (CMP #$0400 equal: carry set)
       io8(PPU.screen, 0x07);
       break;
     }
     const spr = r16(R.sprite_render_table + r16(0x62));
     if (r16(spr + sprite.type) !== 0) {
-      if (!renderOneSprite(spr)) break; // OAM full: PLA : JMP CODE_B5A18A in the original
+      if (!renderOneSprite(spr)) {
+        // OAM full: PLA : JMP CODE_B5A18A in the original
+        reg.c = fullCarry;
+        break;
+      }
     }
     // .CODE_B5A17C
     w16(0x62, (r16(0x62) + 2) & 0xffff);
