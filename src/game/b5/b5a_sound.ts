@@ -55,7 +55,10 @@ function long16(addr: number): number {
 /** The 24-bit pointer stored at a direct-page location (word + bank byte). */
 const dpPtr = (dp: number) => r16(dp) | (r8(dp + 2) << 16);
 
-const waitEcho = (x: number) => waitUntil(() => ioR8(APU.IO1) === x);
+// Poll every 2 master cycles (the finest step of the hardware model): the reference CPU is
+// overclocked, so the original reacts to an echo almost instantly; coarser polling adds latency
+// to every word of a sample upload and shifts level loads by whole frames.
+const waitEcho = (x: number) => waitUntil(() => ioR8(APU.IO1) === x, 2, 50_000_000);
 
 // ---------------------------------------------------------------------------------------------
 // Low-level SPC700 transfers
@@ -134,7 +137,7 @@ function execute_spc_sound_engine() {
 /** $B58213 .upload_spc_base_engine — boot the SPC700 through its IPL ROM and upload the core. */
 function upload_spc_base_engine() {
   // the IPL signals readiness with $BBAA in $2140/$2141
-  waitUntil(() => (ioR8(APU.IO1) | (ioR8(APU.IO2) << 8)) === 0xbbaa);
+  waitUntil(() => (ioR8(APU.IO1) | (ioR8(APU.IO2) << 8)) === 0xbbaa, 2, 50_000_000);
   io16(APU.IO3, rom16(IMM_APU_RESET)); // ARAM address of the transfer
   io16(APU.IO1, 0x01cc); // $CC = start transfer, $01 = non-zero (data follows)
   waitEcho(0xcc);
@@ -149,6 +152,8 @@ function upload_spc_base_engine() {
   // counter + 2 with $2141 = 0 ends the transfer and executes the uploaded code
   x = (x + 1) & 0xff;
   io16(APU.IO1, x);
+  // the IPL echoes this kick only for a moment before jumping into the new code, which
+  // overwrites $2140 almost at once
   waitEcho(x);
   w16(R.spc_transaction, 0);
   w16(R.stereo_select, 1); // mono by default
