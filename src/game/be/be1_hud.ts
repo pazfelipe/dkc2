@@ -17,6 +17,7 @@ import { request_palette_direct_global, CODE_B59CAE, queue_sound_effect } from "
 import { cur, adcBcd16, sbcBcd16 } from "./be1_util";
 
 const OAM_SIZE_BITS = L("DATA_BEC985"); // "large" bit of an OAM entry in the high table
+const DIDDY_PALETTE = L("diddy_active_sprite_palette") & 0xffff; // palette data address
 const OAM_X9_BITS = L("DATA_BEC9B0"); // bit 8 of x of an OAM entry in the high table
 
 // ---------------------------------------------------------------------------------------------
@@ -155,7 +156,7 @@ export function CODE_BEC689(): void {
 
 /** $BEC695 — draw the HUD (called by render_sprites). */
 export function CODE_BEC695(): void {
-  reg.a = C.diddy_active_sprite_palette;
+  reg.a = DIDDY_PALETTE;
   request_palette_direct_global();
   // only the palette slot number is wanted: undo the reference
   const ref = (R.sprite_palette_reference_count + reg.x) & 0xffff;
