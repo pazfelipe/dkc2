@@ -19,6 +19,7 @@
  */
 import { r8, r16, w8, w16, bus8, busW8, rom8, rom16, io8, io16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
+import { chargeOps } from "./bba_util";
 import { L, DMA, PPU, CPU } from "../../core/sym";
 
 // ---- decoder state (the direct page variables of the original) ----
@@ -33,6 +34,11 @@ let off3E = 0; // $3E (8-bit)
 let off40 = 0; // $40
 let cmd4E = 0x01; // $4E low byte: last set 1 dispatch
 let cmd4A = 0x40; // $4A low byte: last set 2 dispatch
+/** Instructions the original would have executed (see chargeTime). */
+let ops = 0;
+let entered = false;
+/** build_decompression_lookup: 4 + 256*7 + 2 + 256*9 + 2 instructions. */
+const BUILD_LOOKUP_OPS = 4104;
 
 const SET1 = 1;
 const SET2 = 2; // next command = low nibble of $42
@@ -62,6 +68,7 @@ const getWord = (o: number) => get(o) | (get(o + 1) << 8);
 
 function fill(v: number, n: number) {
   count = n;
+  ops += 4 * n;
   do {
     put(x, v);
     x = (x + 1) & 0xffff;
@@ -71,6 +78,7 @@ function fill(v: number, n: number) {
 /** Copy `n` bytes from an earlier output offset, byte by byte (overlap repeats data). */
 function backCopy(from: number, n: number) {
   count = n;
+  ops += 6 * n;
   let s = from & 0xffff;
   do {
     put(x, get(s));
@@ -85,7 +93,11 @@ function backCopy(from: number, n: number) {
 /** $BB8E2A — 0n: copy n literal bytes; n = 0 ends the data. */
 function copy_or_return_1(): number {
   const n = b46 & 0x0f;
-  if (n === 0) return DONE;
+  if (n === 0) {
+    ops += 3;
+    return DONE;
+  }
+  ops += 5 + 6 * n;
   count = n;
   do {
     put(x, next());
@@ -96,6 +108,7 @@ function copy_or_return_1(): number {
 }
 /** $BB8E96 — 1n: one literal byte made of nibble n and the next nibble. */
 function stream_byte_1(): number {
+  ops += 10;
   off3E = loNibbleUp(b46);
   b42 = next();
   put(x, off3E | hiNibble(b42));
@@ -104,6 +117,7 @@ function stream_byte_1(): number {
 }
 /** $BB8EB4 — 2n: two literal bytes, nibble-shifted. */
 function stream_word_1(): number {
+  ops += 20;
   off3E = loNibbleUp(b46);
   b42 = b46 = next();
   put(x, off3E | hiNibble(b42));
@@ -116,40 +130,47 @@ function stream_word_1(): number {
 }
 /** $BB8EEB — 3n vv: n+3 copies of byte vv. */
 function stream_byte_fill_1(): number {
+  ops += 7;
   const n = (b46 & 0x0f) + 3;
   fill(next(), n);
   return SET1;
 }
 /** $BB8F26 — 4n: n+3 copies of fill byte 1. */
 function direct_byte_1_fill_1(): number {
+  ops += 6;
   fill(r8(0x52), (b46 & 0x0f) + 3);
   return SET1;
 }
 /** $BB8F53 — 5n: n+3 copies of fill byte 2. */
 function direct_byte_2_fill_1(): number {
+  ops += 6;
   fill(r8(0x53), (b46 & 0x0f) + 3);
   return SET1;
 }
 /** $BB8F80 — 6: the direct word. */
 function direct_word_put_1(): number {
+  ops += 7;
   putWord(x, r16(0x54));
   x = (x + 2) & 0xffff;
   return SET2_WIDE;
 }
 /** $BB8F9C — 7: direct byte 1. */
 function direct_byte_1_put_1(): number {
+  ops += 4;
   put(x, r8(0x56));
   x = (x + 1) & 0xffff;
   return SET2_WIDE;
 }
 /** $BB8FAE — 8: direct byte 2. */
 function direct_byte_2_put_1(): number {
+  ops += 4;
   put(x, r8(0x57));
   x = (x + 1) & 0xffff;
   return SET2_WIDE;
 }
 /** $BB8FC0 — 9n: repeat the word n+2 bytes back. */
 function back_copy_word_1(): number {
+  ops += 17;
   off3E = (b46 & 0x0f) + 2;
   putWord(x, getWord((x - off3E) & 0xffff));
   x = (x + 2) & 0xffff;
@@ -157,6 +178,7 @@ function back_copy_word_1(): number {
 }
 /** $BB8FFF — An oo: copy n+3 bytes from oo bytes before the copy's start. */
 function back_copy_1(): number {
+  ops += 18;
   const n = (b46 & 0x0f) + 3;
   off3E = next();
   backCopy(x - n - off3E, n);
@@ -164,6 +186,7 @@ function back_copy_1(): number {
 }
 /** $BB9062 — Bn ooo: copy n+3 bytes from ooo+$103 bytes back. */
 function back_copy_far_1(): number {
+  ops += 26;
   const n = (b46 & 0x0f) + 3;
   const hi = next();
   b46 = next();
@@ -173,6 +196,7 @@ function back_copy_far_1(): number {
 }
 /** $BB90C9 — Cn oooo: copy n+3 bytes from oooo (big endian) bytes back. */
 function back_copy_arbitrary_1(): number {
+  ops += 18;
   const n = (b46 & 0x0f) + 3;
   const w = srcWord(y);
   off40 = ((w << 8) | (w >> 8)) & 0xffff;
@@ -182,6 +206,7 @@ function back_copy_arbitrary_1(): number {
 }
 /** $BB9138 — D: repeat the last byte. */
 function duplicate_byte_1(): number {
+  ops += 6;
   x = (x - 1) & 0xffff;
   put(x + 1, get(x));
   x = (x + 2) & 0xffff;
@@ -189,6 +214,7 @@ function duplicate_byte_1(): number {
 }
 /** $BB9150 — E: repeat the last word. */
 function duplicate_word_1(): number {
+  ops += 11;
   x = (x - 2) & 0xffff;
   putWord(x + 2, getWord(x));
   x = (x + 4) & 0xffff;
@@ -196,6 +222,7 @@ function duplicate_word_1(): number {
 }
 /** $BB9176 — Fn: header word n (bytes 7+2n). */
 function copy_future_word_1(): number {
+  ops += 14;
   putWord(x, srcWord(((b46 & 0x0f) << 1) + 7));
   x = (x + 2) & 0xffff;
   return SET1;
@@ -207,7 +234,11 @@ function copy_future_word_1(): number {
 function copy_or_return_2(): number {
   b42 = b46 = next();
   const n = hiNibble(b42);
-  if (n === 0) return DONE;
+  if (n === 0) {
+    ops += 6;
+    return DONE;
+  }
+  ops += 8 + 12 * n;
   count = n;
   do {
     off3E = loNibbleUp(b46);
@@ -220,12 +251,14 @@ function copy_or_return_2(): number {
 }
 /** $BB8EAA */
 function stream_byte_2(): number {
+  ops += 5;
   put(x, next());
   x = (x + 1) & 0xffff;
   return SET1;
 }
 /** $BB8EDB */
 function stream_word_2(): number {
+  ops += 9;
   putWord(x, srcWord(y));
   y = (y + 2) & 0xffff;
   x = (x + 2) & 0xffff;
@@ -233,6 +266,7 @@ function stream_word_2(): number {
 }
 /** $BB8F01 */
 function stream_byte_fill_2(): number {
+  ops += 15;
   b42 = b46 = next();
   const n = hiNibble(b42) + 3;
   off3E = loNibbleUp(b46);
@@ -242,36 +276,42 @@ function stream_byte_fill_2(): number {
 }
 /** $BB8F3B */
 function direct_byte_1_fill_2(): number {
+  ops += 8;
   b42 = next();
   fill(r8(0x52), hiNibble(b42) + 3);
   return SET2;
 }
 /** $BB8F68 */
 function direct_byte_2_fill_2(): number {
+  ops += 8;
   b42 = next();
   fill(r8(0x53), hiNibble(b42) + 3);
   return SET2;
 }
 /** $BB8F8E */
 function direct_word_put_2(): number {
+  ops += 7;
   putWord(x, r16(0x54));
   x = (x + 2) & 0xffff;
   return SET1;
 }
 /** $BB8FA5 */
 function direct_byte_1_put_2(): number {
+  ops += 4;
   put(x, r8(0x56));
   x = (x + 1) & 0xffff;
   return SET1;
 }
 /** $BB8FB7 */
 function direct_byte_2_put_2(): number {
+  ops += 4;
   put(x, r8(0x57));
   x = (x + 1) & 0xffff;
   return SET1;
 }
 /** $BB8FDE */
 function back_copy_word_2(): number {
+  ops += 19;
   b42 = next();
   off3E = hiNibble(b42) + 2;
   putWord(x, getWord((x - off3E) & 0xffff));
@@ -280,6 +320,7 @@ function back_copy_word_2(): number {
 }
 /** $BB9029 */
 function back_copy_2(): number {
+  ops += 26;
   b42 = b46 = next();
   const n = hiNibble(b42) + 3;
   off3E = loNibbleUp(b46);
@@ -290,6 +331,7 @@ function back_copy_2(): number {
 }
 /** $BB9097 */
 function back_copy_far_2(): number {
+  ops += 22;
   b42 = next();
   const n = hiNibble(b42) + 3;
   const lo = next();
@@ -299,6 +341,7 @@ function back_copy_far_2(): number {
 }
 /** $BB90F2 */
 function back_copy_arbitrary_2(): number {
+  ops += 34;
   b42 = next();
   const n = hiNibble(b42) + 3;
   const lo = next();
@@ -310,6 +353,7 @@ function back_copy_arbitrary_2(): number {
 }
 /** $BB9144 */
 function duplicate_byte_2(): number {
+  ops += 6;
   x = (x - 1) & 0xffff;
   put(x + 1, get(x));
   x = (x + 2) & 0xffff;
@@ -317,6 +361,7 @@ function duplicate_byte_2(): number {
 }
 /** $BB9163 */
 function duplicate_word_2(): number {
+  ops += 11;
   x = (x - 2) & 0xffff;
   putWord(x + 2, getWord(x));
   x = (x + 4) & 0xffff;
@@ -324,6 +369,7 @@ function duplicate_word_2(): number {
 }
 /** $BB9190 */
 function copy_future_word_2(): number {
+  ops += 18;
   b46 = next();
   putWord(x, srcWord(((b46 & 0xf0) >> 3) + 7));
   x = (x + 2) & 0xffff;
@@ -361,6 +407,8 @@ function initTables() {
 
 /** $BB8D91 — X/Y = source address/bank, A = destination offset in bank $7F. */
 export function decompress_data() {
+  ops = 6;
+  entered = true;
   w16(0x38, reg.a);
   w16(0x3a, 0x007f);
   w16(0x34, reg.x);
@@ -370,6 +418,8 @@ export function decompress_data() {
 
 /** $BB8D9E — X/Y = source address/bank; destination $7F0000. */
 export function decompress_data_default() {
+  ops = 8;
+  entered = true;
   w16(0x34, reg.x);
   w16(0x36, reg.y);
   w16(0x38, 0x0000);
@@ -380,6 +430,9 @@ export function decompress_data_default() {
 /** $BB8DAE — decompress [$34] to $3A:$38. Returns X = decompressed size (A = $FFFF). */
 export function start_decompression() {
   if (!setTable1.length) initTables();
+  if (!entered) ops = 0;
+  entered = false;
+  ops += 41 + BUILD_LOOKUP_OPS;
   const savedY = reg.y;
   w16(0x32, 0xffff); // never DMA the result to VRAM
   w16(0x46, 0x2100);
@@ -413,11 +466,13 @@ export function start_decompression() {
       // execute_command_set_1: high nibble of a fresh byte
       b46 = next();
       cmd4E = (b46 & 0xf0) >> 2;
+      ops += 9 + 1; // dispatch + the JMP of the entry (the RTS skips its NOP)
       mode = setTable1[b46 >> 4]();
     } else {
       // execute_command_set_2 / _wide: low nibble of $42 / $46
       const n = (mode === SET2 ? b42 : b46) & 0x0f;
       cmd4A = (n << 2) + 0x3f;
+      ops += 8 + 1;
       mode = setTable2[n]();
     }
   }
@@ -426,6 +481,8 @@ export function start_decompression() {
 
 /** $BB8E40 — leave the decoder: X = bytes written. */
 function finalize_decompression(savedY: number) {
+  ops += 10;
+  chargeOps(ops);
   // the decoder's direct page as the original leaves it
   w8(0x42, b42);
   w8(0x46, b46);

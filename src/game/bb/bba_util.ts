@@ -33,3 +33,22 @@ import { bus8 } from "../../core/mem";
 export function read16x(addr: number): number {
   return bus8(addr & 0xffffff) | (bus8((addr + 1) & 0xffffff) << 8);
 }
+
+import { hw } from "../../core/mem";
+/**
+ * Timing: a few ported routines are long enough that the original's CPU time decides how many
+ * VBlanks pass during a level load (lag frames), even on the overclocked reference CPU. Those
+ * routines count the instructions the original would have executed and let the equivalent
+ * emulated time pass (measured: ~0.368 master cycles per instruction at the reference's 64x
+ * overclock, the average for these memory-bound loops), so frames stay aligned with the original.
+ */
+const MASTER_CYCLES_PER_OP = 0.368;
+let cycleDebt = 0;
+export function chargeOps(ops: number) {
+  cycleDebt += ops * MASTER_CYCLES_PER_OP;
+  const whole = Math.floor(cycleDebt / 6) * 6;
+  if (whole > 0) {
+    hw.idle(whole);
+    cycleDebt -= whole;
+  }
+}

@@ -15,6 +15,11 @@ const LEVEL_INDEX_TO_BITS = L("get_complete_bit_for_level_level_index_to_bits_ta
 const LEVEL_TABLE_FD0000 = L("DATA_FD0000");
 const LEVEL_1 = level._base + 0x3e; // level[1]: the scratch level config used to inspect destinations
 
+function setNZ(a: number) {
+  reg.z = (a & 0xffff) === 0;
+  reg.n = (a & 0x8000) !== 0;
+}
+
 /** $BB80B4 — A = level number. Counts the bonus levels reachable from that level (high byte of $B0)
  * and how many of their Kremkoins are still uncollected (low byte). Returns A ($B0) with Z set when 0. */
 export function CODE_BB80B4() {
@@ -89,6 +94,7 @@ export function is_krem_coin_collected() {
   const a = r16(R.collected_tokens_buffer + reg.x) & r16(0x60);
   reg.a = a;
   reg.c = a !== 0;
+  setNZ(a); // some callers branch with BEQ on the AND result
 }
 
 /** $BB8125 */
@@ -112,6 +118,7 @@ export function is_level_dk_coin_collected() {
   const a = r16(R.collected_dk_coins_buffer + reg.x) & r16(0x60);
   reg.a = a;
   reg.c = a !== 0;
+  setNZ(a); // some callers branch with BEQ on the AND result
 }
 
 /** $BB8147 */
@@ -216,6 +223,7 @@ export function is_level_cleared() {
   const a = r16(R.completed_levels_buffer + reg.x) & r16(0x60);
   reg.a = a;
   reg.c = a !== 0;
+  setNZ(a); // some callers branch with BEQ on the AND result
 }
 
 register({
