@@ -966,7 +966,7 @@ function CODE_B49C71() {
     if (!reg.c) return payPrice();
     const x = rom16(B4(lo16(L("DATA_B49665")) + (((world() - 1) << 1) & 0xffff)));
     get_player_coin_count_npc();
-    const left = (reg.a - rom16(B4(x + 3))) & 0xffff;
+    const left = (reg.a - bus16(B4(x + 3))) & 0xffff; // via the bus: a null table entry reads WRAM
     reg.a = left;
     if (left & 0x8000) return cantAfford();
     return CODE_B49D4F(left);
@@ -1004,7 +1004,8 @@ function payPrice() {
   w16(0x0666, table);
   const x = ((((r16(0x0654) - 1) << 1) & 0xffff) + table) & 0xffff;
   get_player_coin_count_npc();
-  const left = (reg.a - rom16(B4(x))) & 0xffff;
+  // through the bus: worlds without this NPC have a null price table, so X points into WRAM
+  const left = (reg.a - bus16(B4(x))) & 0xffff;
   reg.a = left;
   if (!(left & 0x8000)) return CODE_B49D4F(left);
   cantAfford();

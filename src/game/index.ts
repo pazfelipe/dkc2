@@ -34,6 +34,7 @@ import "./b4/b4_map";
 import "./b4/b4_npc";
 import "./b4/b4_text";
 import "./b4/b4_util";
+import "./b4/w4_b4_ending";
 import "./b5/b5a_level_stream";
 import "./b5/b5a_sound";
 import "./b5/b5a_sprite_render";
