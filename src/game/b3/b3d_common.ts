@@ -64,3 +64,13 @@ const CODE_B3D916_ADDR = L("CODE_B3D916");
 /** `JMP CODE_B3D916` ($B3D916: JSL CODE_BBBB99, JML [sprite_return_address]) — the usual
  * sprite exit of these codes, which also handles despawning off-screen sprites. */
 export const exitB3D916 = () => spriteTail(CODE_B3D916_ADDR);
+
+import { r8 } from "../../core/mem";
+import { KIND_JSL } from "../../core/hybrid";
+/** `JML [ptr]` with a return address pushed (= JSL to the 24-bit pointer held in WRAM at `ptr`). */
+export function jslIndirect(ptr: number) {
+  const addr = ((r8(ptr + 2) << 16) | r16(ptr)) & 0xffffff;
+  const impl = implAt(addr);
+  if (impl) return impl();
+  runOriginal(addr, KIND_JSL, reg.db, 0, 0);
+}
