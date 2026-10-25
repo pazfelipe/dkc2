@@ -52,3 +52,16 @@ The DSP's own buffer only keeps the last ~32 ms, so the sound of those frames us
 same 17 ms chunk was replayed while the lag frames passed (the "stuck" music). The DSP now copies
 every sample into a 4 s capture ring (`hw_audio_drain`), and `AudioOut` queues it and plays it out in
 real time.
+
+## Animated screens (world maps) on the GPU
+
+`src/platform/xbrgl.ts` runs xBR level 2 (Hyllian) as a WebGL2 fragment shader on the background
+every frame, so animated screens (water, lights, clouds) are upscaled live. Sprites come from the same
+PPU split and are composited unscaled (additive ones with "lighter"). `test/hd_split_check.ts` checks
+that bg + sprites recompose to exactly the PPU's frame.
+
+## HD Diddy respects layers
+
+With HD Diddy his OAM entries are removed, but the PPU is told his OBJ priority (`hw_hd_ghost`) and
+records, per pixel, where anything in front of that priority is opaque (`hw_hd_occl`). That mask is cut
+out of the HD sprite, so ropes, walls and foreground scenery pass in front of him like in the original.

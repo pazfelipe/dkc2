@@ -55,6 +55,12 @@ extern uint16_t ppu_hd_obj[];
 EXPORT void hw_hd_split(int on) { ppu_hd_split = on; }
 EXPORT uint16_t* hw_hd_bg(void) { return ppu_hd_bg; }
 EXPORT uint16_t* hw_hd_obj(void) { return ppu_hd_obj; }
+extern uint16_t ppu_hd_add[];
+EXPORT uint16_t* hw_hd_add(void) { return ppu_hd_add; }
+extern int ppu_hd_ghost_prio;
+extern uint8_t ppu_hd_occl[];
+EXPORT void hw_hd_ghost(int prio) { ppu_hd_ghost_prio = prio; }
+EXPORT uint8_t* hw_hd_occl(void) { return ppu_hd_occl; }
 EXPORT int hw_brightness(void) { return snes->ppu->forcedBlank ? 0 : snes->ppu->brightness; }
 EXPORT uint8_t* hw_aram(void) { return snes->apu->ram; }
 EXPORT int hw_vpos(void) { return snes->vPos; }

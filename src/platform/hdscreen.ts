@@ -11,21 +11,46 @@
 import { hw, r16 } from "../core/mem";
 import { L } from "../core/sym";
 import { HD_SCALE } from "./hdsprites";
+import { XbrGL } from "./xbrgl";
 
 interface SplitEx {
   hw_hd_split(on: number): void;
   hw_hd_bg(): number;
   hw_hd_obj(): number;
+  hw_hd_add(): number;
 }
 const ex = () => hw.ex as unknown as SplitEx;
 const W = 256, H = 224;
 
 const NMI_POINTER = 0x0020;
-/** Screens whose background gets the HD treatment: static backgrounds only, since upscaling is costly. */
-const HD_SCREENS = new Set(["run_title_screen", "run_file_select", "run_game_mode_select"].map((n) => L(n) & 0xffff));
+/** Static screens: upscaled once on the CPU with xBRZ and cached. */
+const STATIC_SCREENS = new Set(["run_title_screen", "run_file_select", "run_game_mode_select"].map((n) => L(n) & 0xffff));
+/** Animated screens (water, lights, scrolling): upscaled every frame on the GPU with xBR. */
+const ANIMATED_SCREENS = new Set(["run_simple_world_map", "run_crocodile_isle"].map((n) => L(n) & 0xffff));
+/** dev: force the GPU path on every screen */
+export const hdAll = { v: false };
 
 export function hdScreenActive(): boolean {
-  return HD_SCREENS.has(r16(NMI_POINTER));
+  const p = r16(NMI_POINTER);
+  return hdAll.v || STATIC_SCREENS.has(p) || ANIMATED_SCREENS.has(p);
+}
+
+let gpu: XbrGL | null | undefined;
+const gpuRgba = new Uint8Array(W * H * 4);
+function gpuUpscale(bg: Uint16Array): CanvasImageSource | null {
+  if (gpu === undefined) {
+    try {
+      gpu = new XbrGL(W, H, HD_SCALE);
+    } catch (e) {
+      console.warn("HD: no WebGL2, animated screens stay at original resolution", e);
+      gpu = null;
+    }
+  }
+  if (!gpu) return null;
+  const px = new Uint32Array(gpuRgba.buffer);
+  for (let i = 0; i < bg.length; i++) px[i] = rgba(bg[i]);
+  gpu.render(gpuRgba);
+  return gpu.canvas;
 }
 
 /** Ask the PPU for the split output while rendering the coming frame. */
@@ -79,29 +104,34 @@ function request(hash: number, bg: Uint16Array) {
 }
 
 /**
- * Draw the split frame onto a 4x context. Returns false when the upscaled background is not ready
- * yet (first time a screen state is seen); the caller then draws the normal frame.
+ * Draw the split frame onto a 4x context. Returns false when no upscaler is available (no WebGL2
+ * and the xBRZ result is not ready); the caller then draws the normal frame.
  */
 export function drawHdScreen(ctx: CanvasRenderingContext2D, brightness: number): boolean {
   const bg = new Uint16Array(hw.mem, ex().hw_hd_bg(), W * H);
   const obj = new Uint16Array(hw.mem, ex().hw_hd_obj(), W * H);
+  const add = new Uint16Array(hw.mem, ex().hw_hd_add(), W * H);
   let h = 2166136261;
   for (let i = 0; i < bg.length; i++) h = Math.imul(h ^ bg[i], 16777619);
-  const bgImg = cache.get(h);
-  if (!bgImg) {
-    request(h, bg);
-    return false;
+  let bgImg: CanvasImageSource | null | undefined;
+  if (STATIC_SCREENS.has(r16(NMI_POINTER)) && !hdAll.v) {
+    bgImg = cache.get(h);
+    if (bgImg) {
+      cache.delete(h); // keep recently used entries at the end
+      cache.set(h, bgImg as ImageBitmap);
+    } else request(h, bg);
   }
-  cache.delete(h); // keep recently used entries at the end
-  cache.set(h, bgImg);
+  // animated screens, or a static one whose xBRZ result is still being computed
+  bgImg ??= gpuUpscale(bg);
+  if (!bgImg) return false;
   const o32 = new Uint32Array(opaqueImg.data.buffer), a32 = new Uint32Array(addImg.data.buffer);
   let anyO = false, anyA = false;
   for (let i = 0; i < obj.length; i++) {
-    const v = obj[i];
-    o32[i] = v & 0x8000 ? rgba(v) : 0;
-    a32[i] = v & 0x4000 ? rgba(v) : 0;
+    const v = obj[i], a = add[i];
+    o32[i] = v & 0x8000 ? rgba(v & 0x7fff) : 0;
+    a32[i] = a & 0x8000 ? rgba(a & 0x7fff) : 0;
     anyO ||= (v & 0x8000) !== 0;
-    anyA ||= (v & 0x4000) !== 0;
+    anyA ||= (a & 0x8000) !== 0;
   }
   ctx.save();
   ctx.imageSmoothingEnabled = false;

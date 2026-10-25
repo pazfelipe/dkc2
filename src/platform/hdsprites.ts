@@ -163,15 +163,15 @@ export function snapshotDiddy(): HdSnapshot | null {
  * tiles (relative to his VRAM base), his palette, and a position inside his frame's box.
  * Returns true if any were found (i.e. the game actually drew Diddy this frame).
  */
-export function hideDiddyOam(s: HdSnapshot, dryRun = false): boolean {
+export function hideDiddyOam(s: HdSnapshot, dryRun = false): number {
   const f = decodeFrame(s.gid);
-  if (!f) return false;
+  if (!f) return -1;
   const base = s.prop & 0x1ff;
   const pal = (s.prop >> 9) & 7;
   const box = placement(s, f);
   const oam = hw.oam(); // 128 entries x 2 words: [y<<8|x], [attr<<8|tile]
   const high = new Uint8Array(hw.mem, (hw.ex as unknown as { hw_high_oam(): number }).hw_high_oam(), 32);
-  let found = false;
+  let prio = -1;
   for (let i = 0; i < 128; i++) {
     const w0 = oam[i * 2], w1 = oam[i * 2 + 1];
     if (((w1 >> 9) & 7) !== pal) continue;
@@ -183,9 +183,25 @@ export function hideDiddyOam(s: HdSnapshot, dryRun = false): boolean {
     if (y >= 0xe0) y -= 256;
     if (x < box.left - 8 || x > box.left + f.w + 8 || y < box.top - 8 || y > box.top + f.h + 8) continue;
     if (!dryRun) oam[i * 2] = (w0 & 0x00ff) | (0xf0 << 8);
-    found = true;
+    prio = (w1 >> 12) & 3;
   }
-  return found;
+  return prio;
+}
+
+/**
+ * Tell the PPU which OBJ priority the hidden Diddy had, so while drawing the frame it records where
+ * something in front of him (foreground tiles, higher-priority sprites) is opaque.
+ */
+export function setOcclusionPriority(prio: number) {
+  (hw.ex as unknown as { hw_hd_ghost(p: number): void }).hw_hd_ghost(prio);
+}
+
+let occlImg: ImageData, occlCanvas: HTMLCanvasElement, layer: HTMLCanvasElement;
+function ensureLayers() {
+  if (layer) return;
+  occlImg = new ImageData(256, 224);
+  occlCanvas = Object.assign(document.createElement("canvas"), { width: 256, height: 224 });
+  layer = Object.assign(document.createElement("canvas"), { width: 256 * HD_SCALE, height: 224 * HD_SCALE });
 }
 
 export function placement(s: HdSnapshot, f: Frame) {
@@ -206,11 +222,33 @@ export function drawDiddyHd(ctx: CanvasRenderingContext2D, s: HdSnapshot, bright
   const { canvas, f } = img;
   const S = HD_SCALE;
   const { left, top, hflip, vflip } = placement(s, f);
+  ensureLayers();
+  // draw him on a layer, cut out what the PPU reported as being in front of him, then composite
+  const lc = layer.getContext("2d")!;
+  lc.clearRect(0, 0, layer.width, layer.height);
+  lc.save();
+  lc.translate(left * S + (hflip ? f.w * S : 0), top * S + (vflip ? f.h * S : 0));
+  lc.scale(hflip ? -1 : 1, vflip ? -1 : 1);
+  lc.drawImage(canvas as CanvasImageSource, 0, 0);
+  lc.restore();
+  const occl = new Uint8Array(hw.mem, (hw.ex as unknown as { hw_hd_occl(): number }).hw_hd_occl(), 256 * 224);
+  const m32 = new Uint32Array(occlImg.data.buffer);
+  let any = false;
+  for (let i = 0; i < occl.length; i++) {
+    m32[i] = occl[i] ? 0xff000000 : 0;
+    any ||= occl[i] !== 0;
+  }
+  if (any) {
+    occlCanvas.getContext("2d")!.putImageData(occlImg, 0, 0);
+    lc.save();
+    lc.imageSmoothingEnabled = false;
+    lc.globalCompositeOperation = "destination-out";
+    lc.drawImage(occlCanvas, 0, 0, layer.width, layer.height);
+    lc.restore();
+  }
   ctx.save();
   ctx.globalAlpha = alpha;
   if (brightness < 15) ctx.filter = `brightness(${brightness / 15})`;
-  ctx.translate(left * S + (hflip ? f.w * S : 0), top * S + (vflip ? f.h * S : 0));
-  ctx.scale(hflip ? -1 : 1, vflip ? -1 : 1);
-  ctx.drawImage(canvas as CanvasImageSource, 0, 0);
+  ctx.drawImage(layer, 0, 0);
   ctx.restore();
 }

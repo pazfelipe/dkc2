@@ -16,9 +16,10 @@ for (let f = 0; f < +n; f++) {
   if (r16(0x20) !== (L(label) & 0xffff)) continue;
   const bg = new Uint16Array(hw.mem, ex.hw_hd_bg(), 256 * 224);
   const ob = new Uint16Array(hw.mem, ex.hw_hd_obj(), 256 * 224);
+  const ad = new Uint16Array(hw.mem, ex.hw_hd_add(), 256 * 224);
   let h = 2166136261;
   for (let i = 0; i < bg.length; i++) h = Math.imul(h ^ bg[i], 16777619);
-  for (let i = 0; i < ob.length; i++) { if (ob[i] & 0x8000) sprites++; if (ob[i] & 0x4000) add++; }
+  for (let i = 0; i < ob.length; i++) { if (ob[i] & 0x8000) sprites++; if (ad[i] & 0x8000) add++; }
   on++;
   if (h !== last) changes++;
   hashes.add(h);

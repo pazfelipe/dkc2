@@ -8,8 +8,8 @@ import { attachKeyboard, readPad } from "./platform/input";
 import { loadStoredRom, storeRom, sha256, normalizeRom, EXPECTED_SHA256, loadBlob, storeBlob } from "./platform/romstore";
 import { bindMachine } from "./core/mem";
 import { boot, frame, frameHooks } from "./game/machine";
-import { hdScreenActive, setSplit, drawHdScreen } from "./platform/hdscreen";
-import { HD_SCALE, snapshotDiddy, hideDiddyOam, drawDiddyHd, type HdSnapshot } from "./platform/hdsprites";
+import { hdScreenActive, setSplit, drawHdScreen, hdAll } from "./platform/hdscreen";
+import { HD_SCALE, snapshotDiddy, hideDiddyOam, drawDiddyHd, setOcclusionPriority, type HdSnapshot } from "./platform/hdsprites";
 import { fallbackStats } from "./core/hybrid";
 import { portedNames } from "./core/cpu";
 import { labelAt } from "./core/sym";
@@ -37,7 +37,7 @@ async function start(rom: Uint8Array) {
   if (sram && sram.length === hw.sram().length) hw.sram().set(sram);
   let lastSram = hw.sram().slice();
   boot();
-  if (import.meta.env.DEV) (window as any).__dkc2 = { hw, hd: (v: boolean) => (hdOnRef.v = v), ghost: (v: boolean) => (ghost.v = v) };
+  if (import.meta.env.DEV) (window as any).__dkc2 = { hw, hd: (v: boolean) => (hdOnRef.v = v), ghost: (v: boolean) => (ghost.v = v), all: (v: boolean) => (hdAll.v = v) };
   attachKeyboard(window);
   // HD Diddy: remember what he looked like when the OAM being displayed was built, take his
   // original chunks out of that OAM, and draw the upscaled frame in their place
@@ -52,7 +52,9 @@ async function start(rom: Uint8Array) {
   frameHooks.preRender = () => {
     screenHd = hdOnRef.v && hdScreenActive();
     setSplit(screenHd);
-    shown = pending && hideDiddyOam(pending, ghost.v) ? pending : null;
+    const prio = pending ? hideDiddyOam(pending, ghost.v) : -1;
+    shown = prio >= 0 ? pending : null;
+    setOcclusionPriority(ghost.v ? -1 : prio);
   };
   const toast = (msg: string) => {
     const t = $("toast");
