@@ -50,3 +50,16 @@ worktree with the original package prompt plus "continue from the commits alread
 branch; read `git log master..HEAD` first". Merge into master when each reports done.
 Open bug: src/game/b5/b5a_sound.ts (ported SPC upload) hangs the boot at real APU speed in the
 browser; it is disabled in src/game/index.ts until fixed.
+
+## BACKLOG (user, 2026-10-25): run 100% without the ROM — after the code migration is complete
+Goal: the game runs with no ROM at all, so every piece (logic AND data) is readable/editable in
+the repo. Learning purpose; the repo stays PRIVATE because extracted assets are Nintendo/Rare's.
+Steps (to plan in detail when we get there):
+1. Asset extraction tool (one-off, run against the user's ROM): graphics -> PNG tilesets/sprite
+   frames, palettes -> JSON, level maps/objects/configs -> JSON, text -> JSON, tables -> TS/JSON.
+2. Replace every ROM read in src/game (rom8/rom16/rom24, bus reads of banks $80+/$C0+) with reads
+   from the extracted data, routine by routine, with the oracle still comparing against the ROM.
+3. Sound: the music/sfx driver runs on the SPC700 and is itself ROM code. Options: keep the driver
+   binary as an extracted asset (simplest), or reimplement the sequencer in TypeScript (study value).
+4. Optionally replace the PPU emulation with a TS/WebGL renderer fed by the extracted data.
+5. Remove the ROM loader; the oracle/test harness keeps using the ROM for verification only.
