@@ -4,7 +4,7 @@
  * around; in Krool's Cabin touching it shows the bg3 text), an OAM clear used by many
  * screens, and Krow's frame counter.
  */
-import { r16, w16, io8 } from "../../core/mem";
+import { r16, w16, io8, rom16 } from "../../core/mem";
 import { reg } from "../../core/cpu";
 import { L, R, C, PPU } from "../../core/sym";
 import {
@@ -22,7 +22,7 @@ export function bank_BA_sprite_main_handler_2(): void {
   reg.db = 0xba;
   if (reg.x === 0x0006) return scroll_and_float_barrel_sprite_code();
   // the other entries (K. Rool, Kong family NPCs, sparkles) are not part of worlds 1-2
-  spriteTail(0xba0000 | r16(0xba0000 | ((MAIN_TABLE + reg.x) & 0xffff)));
+  spriteTail(0xba0000 | rom16(0xba0000 | ((MAIN_TABLE + reg.x) & 0xffff)));
 }
 
 /** $BAC303 — floating barrel: swing its velocities back and forth, move, animate. */
