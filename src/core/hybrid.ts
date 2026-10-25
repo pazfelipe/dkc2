@@ -60,9 +60,12 @@ const ex = () => hw.ex as unknown as CpuEx;
 let trapsOn = false;
 /** Turn on traps into TypeScript for every registered routine (call after binding the machine). */
 export function enableTraps(on = true) {
-  if (on && trapsOn) return;
-  trapsOn = on;
   const e = ex();
+  if (on && trapsOn) {
+    e.hw_traps_enable(1); // the oracle may have switched traps off
+    return;
+  }
+  trapsOn = on;
   for (const a of registeredAddrs()) e.hw_trap_set(a, on ? 1 : 0);
   e.hw_traps_enable(on ? 1 : 0);
   onRegister((a) => e.hw_trap_set(a, 1));

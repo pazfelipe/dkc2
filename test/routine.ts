@@ -14,7 +14,7 @@ import { makeMachine, saveVector, loadVectors, refCall, snap, diffSnaps, fmtDiff
 import { reg, routineByName } from "../src/core/cpu.ts";
 import { parseInput } from "./lib/input.ts";
 import "../src/game/index.ts";
-import { enableTraps } from "../src/core/hybrid.ts";
+import { enableTraps, clearFrameEnded } from "../src/core/hybrid.ts";
 
 const [cmd, label, ...rest] = process.argv.slice(2);
 const opt = (name: string, def?: string) => {
@@ -71,6 +71,7 @@ if (cmd === "capture") {
     hw.loadState(v.state);
     hw.refreshViews();
     enableTraps(true); // the port may call original routines, which may call back into ports
+    clearFrameEnded();
     setRegs(v.regs);
     let err: unknown = null;
     try {
