@@ -25,6 +25,7 @@ function hdma(ch: number, settings: number, source: number, bank: number, indire
   io16(HDMA.source + base, source);
   io8(HDMA.source_bank + base, bank);
   if (indirect !== null) io8(HDMA.indirect_source_bank + base, indirect);
+  reg.x = source; // the last LDX was the source address
 }
 const lbl = (name: string) => L(name);
 const enable = (mask: number) => {
