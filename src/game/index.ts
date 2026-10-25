@@ -50,3 +50,7 @@ import "./bb/bba_progress";
 import "./bb/bba_sprite_alloc";
 import "./bb/bba_util";
 import "./bc/bc_clipping";
+import "./be/be1_coins";
+import "./be/be1_collision";
+import "./be/be1_hud";
+import "./be/be1_util";
