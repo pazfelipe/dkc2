@@ -249,6 +249,11 @@ EXPORT int hw_cpu_call(uint32_t target, int kind, int a, int x, int y, int db, i
     snes->nmiEnabled = false; snes->hIrqEnabled = false; snes->vIrqEnabled = false;
   }
   c->nmiWanted = false; c->irqWanted = false; c->intWanted = false; c->waiting = false; c->stopped = false;
+  /* A power-on/reset leaves resetWanted set until the CPU's first opcode. In hybrid mode the
+   * TypeScript boot() already played RESET_start, so a pending reset must not fire here: it would
+   * jump to the reset vector and run the whole RESET_start again inside this call (in bank $00,
+   * where nothing traps), re-uploading the sound engine to an SPC700 that has left its IPL. */
+  c->resetWanted = false;
   c->e = false;
   c->mf = flags & 1; c->xf = (flags >> 1) & 1; c->c = (flags >> 2) & 1; c->i = true; c->d = false;
   c->z = (flags >> 3) & 1; c->n = (flags >> 4) & 1; c->v = (flags >> 5) & 1;

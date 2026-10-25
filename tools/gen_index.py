@@ -3,7 +3,6 @@ import os
 root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "game")
 # Modules kept out of the build on purpose (reason shown in the generated file).
 DISABLED = {
-    "./b5/b5a_sound": "disabled: boot hangs at real APU speed (under investigation)",
 }
 mods = []
 for d, _, files in os.walk(root):
