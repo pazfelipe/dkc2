@@ -39,3 +39,12 @@ shot_donkey_kong, defeated_krool, lava_splash, spiked_canballs, kleever_falling_
 Keep everything else (Kongs, animals, items, barrels, cannons, hooks, ropes, bonus/warp,
 Kong family NPCs, Klubba, world-1 enemies: Neek, Click-Clack, Klomp, Klobber, Kruncha, Kaboing,
 Klinger, Zinger, Flitter, Lockjaw, Flotsam, Shuri, Puftup, Krow).
+
+## PAUSED 2026-10-25 01:10 (user request)
+Wave 2 packages are paused, work committed on branches pkg/b5b, pkg/bbb, pkg/be1, pkg/be2,
+pkg/b3a, pkg/b3b, pkg/b3c, pkg/b3d (worktrees in /home/claude/wt/<pkg>). To resume: send the
+agent a message to continue (agent ids in the conversation), or start a new agent on the same
+worktree with the original package prompt plus "continue from the commits already on your
+branch; read `git log master..HEAD` first". Merge into master when each reports done.
+Open bug: src/game/b5/b5a_sound.ts (ported SPC upload) hangs the boot at real APU speed in the
+browser; it is disabled in src/game/index.ts until fixed.

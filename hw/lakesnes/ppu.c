@@ -277,12 +277,30 @@ void ppu_setPixelOutputFormat(Ppu* ppu, int pixelOutputFormat) {
   ppu->pixelOutputFormat = pixelOutputFormat;
 }
 
-static void ppu_handlePixel(Ppu* ppu, int x, int y) {
+// --- HD split output (port addition): the main-screen color without sprites, and the sprite pixels
+// on their own, both as BGR555 before brightness. Lets the browser upscale backgrounds separately.
+int ppu_hd_split = 0;
+uint16_t ppu_hd_bg[256 * 240];
+uint16_t ppu_hd_obj[256 * 240]; // bit 15 set = a sprite pixel is visible here (main screen, opaque)
+uint16_t ppu_hd_add[256 * 240]; // bit 15 set = a sub-screen sprite is added on top here
+static bool ppu_skip_obj = false;
+// Occlusion masks for sprites drawn outside the PPU (HD Kongs): when ppu_hd_occl_on, bit p of
+// ppu_hd_occl[i] is set where something in front of OBJ priority p (0-3) is opaque.
+int ppu_hd_occl_on = 0;
+uint8_t ppu_hd_occl[256 * 240];
+static int hd_reached_mask;
+// set by ppu_composePixel when the pixel is "main + subscreen sprite" (additive, no halving)
+static bool hd_add_obj;
+static int hd_pre_r, hd_pre_g, hd_pre_b, hd_add_r, hd_add_g, hd_add_b;
+
+static int ppu_composePixel(Ppu* ppu, int x, int y, int* pr, int* pg, int* pb, int* pr2, int* pg2, int* pb2) {
   int r = 0, r2 = 0;
   int g = 0, g2 = 0;
   int b = 0, b2 = 0;
+  int mainLayer = 5;
+  hd_add_obj = false;
   if(!ppu->forcedBlank) {
-    int mainLayer = ppu_getPixel(ppu, x, y, false, &r, &g, &b);
+    mainLayer = ppu_getPixel(ppu, x, y, false, &r, &g, &b);
     bool colorWindowState = ppu_getWindowState(ppu, 5, x);
     if(
       ppu->clipMode == 3 ||
@@ -302,8 +320,11 @@ static void ppu_handlePixel(Ppu* ppu, int x, int y) {
     if((mathEnabled && ppu->addSubscreen) || ppu->pseudoHires || ppu->mode == 5 || ppu->mode == 6) {
       secondLayer = ppu_getPixel(ppu, x, y, true, &r2, &g2, &b2);
     }
-    // TODO: subscreen pixels can be clipped to black as well
-    // TODO: math for subscreen pixels (add/sub sub to main)
+    hd_add_obj = mathEnabled && ppu->addSubscreen && !ppu->subtractColor && !ppu->halfColor && (secondLayer == 4 || secondLayer == 6);
+    if(hd_add_obj) {
+      hd_pre_r = r; hd_pre_g = g; hd_pre_b = b;
+      hd_add_r = r2; hd_add_g = g2; hd_add_b = b2;
+    }
     if(mathEnabled) {
       if(ppu->subtractColor) {
         r -= (ppu->addSubscreen && secondLayer != 5) ? r2 : ppu->fixedColorR;
@@ -330,6 +351,35 @@ static void ppu_handlePixel(Ppu* ppu, int x, int y) {
       r2 = r; g2 = g; b2 = b;
     }
   }
+  *pr = r; *pg = g; *pb = b; *pr2 = r2; *pg2 = g2; *pb2 = b2;
+  return mainLayer;
+}
+
+static void ppu_handlePixel(Ppu* ppu, int x, int y) {
+  int r, g, b, r2, g2, b2;
+  int mainLayer = ppu_composePixel(ppu, x, y, &r, &g, &b, &r2, &g2, &b2);
+  if(ppu_hd_occl_on && y >= 1 && y <= 240) ppu_hd_occl[(y - 1) * 256 + x] = ppu->forcedBlank ? 0 : (~hd_reached_mask & 0xf);
+  if(ppu_hd_split && y >= 1 && y <= 240) {
+    int i = (y - 1) * 256 + x;
+    if(mainLayer == 4 || mainLayer == 6) {
+      ppu_hd_add[i] = 0;
+      ppu_hd_obj[i] = 0x8000 | (b << 10) | (g << 5) | r;
+      int br, bg, bb, t;
+      ppu_skip_obj = true;
+      ppu_composePixel(ppu, x, y, &br, &bg, &bb, &t, &t, &t);
+      ppu_skip_obj = false;
+      ppu_hd_bg[i] = (bb << 10) | (bg << 5) | br;
+    } else if(hd_add_obj) {
+      // a subscreen sprite added on top (e.g. the title screen's chest twinkles)
+      ppu_hd_obj[i] = 0;
+      ppu_hd_add[i] = 0x8000 | (hd_add_b << 10) | (hd_add_g << 5) | hd_add_r;
+      ppu_hd_bg[i] = (hd_pre_b << 10) | (hd_pre_g << 5) | hd_pre_r;
+    } else {
+      ppu_hd_obj[i] = 0;
+      ppu_hd_add[i] = 0;
+      ppu_hd_bg[i] = (b << 10) | (g << 5) | r;
+    }
+  }
   int row = (y - 1) + (ppu->evenFrame ? 0 : 239);
   ppu->pixelBuffer[row * 2048 + x * 8 + 0 + ppu->pixelOutputFormat] = ((b2 << 3) | (b2 >> 2)) * ppu->brightness / 15;
   ppu->pixelBuffer[row * 2048 + x * 8 + 1 + ppu->pixelOutputFormat] = ((g2 << 3) | (g2 >> 2)) * ppu->brightness / 15;
@@ -346,9 +396,11 @@ static int ppu_getPixel(Ppu* ppu, int x, int y, bool sub, int* r, int* g, int* b
   actMode = ppu->mode == 7 && ppu->m7extBg ? 9 : actMode;
   int layer = 5;
   int pixel = 0;
+  int reached = 0;
   for(int i = 0; i < layerCountPerMode[actMode]; i++) {
     int curLayer = layersPerMode[actMode][i];
     int curPriority = prioritysPerMode[actMode][i];
+    if(curLayer == 4) reached |= 1 << curPriority;
     bool layerActive = false;
     if(!sub) {
       layerActive = ppu->layer[curLayer].mainScreenEnabled && (
@@ -392,7 +444,7 @@ static int ppu_getPixel(Ppu* ppu, int x, int y, bool sub, int* r, int* g, int* b
       } else {
         // get a pixel from the sprite buffer
         pixel = 0;
-        if(ppu->objPriorityBuffer[x] == curPriority) pixel = ppu->objPixelBuffer[x];
+        if(!ppu_skip_obj && ppu->objPriorityBuffer[x] == curPriority) pixel = ppu->objPixelBuffer[x];
       }
     }
     if(pixel > 0) {
@@ -400,6 +452,7 @@ static int ppu_getPixel(Ppu* ppu, int x, int y, bool sub, int* r, int* g, int* b
       break;
     }
   }
+  if(!sub && !ppu_skip_obj) hd_reached_mask = pixel == 0 ? 0xf : reached;
   if(ppu->directColor && layer < 4 && bitDepthsPerMode[actMode][layer] == 8) {
     *r = ((pixel & 0x7) << 2) | ((pixel & 0x100) >> 7);
     *g = ((pixel & 0x38) >> 1) | ((pixel & 0x200) >> 8);
