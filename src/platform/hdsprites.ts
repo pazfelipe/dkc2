@@ -145,8 +145,7 @@ export interface HdSnapshot {
   scrollY: number;
 }
 
-export function snapshotDiddy(): HdSnapshot | null {
-  const slot = r16(r16(ACTIVE_KONG_NUMBER) === 0 ? ACTIVE_KONG_SPRITE : INACTIVE_KONG_SPRITE);
+function snapshotSlot(slot: number): HdSnapshot | null {
   if (slot < SPRITE_TABLE_START || slot >= SPRITE_TABLE_END || r16(slot) === 0) return null;
   return {
     x: r16(slot + 0x06),
@@ -158,20 +157,44 @@ export function snapshotDiddy(): HdSnapshot | null {
   };
 }
 
+/** Diddy only (kept for the alignment test). */
+export function snapshotDiddy(): HdSnapshot | null {
+  return snapshotSlot(r16(r16(ACTIVE_KONG_NUMBER) === 0 ? ACTIVE_KONG_SPRITE : INACTIVE_KONG_SPRITE));
+}
+
+/** Both Kongs (Diddy and Dixie), whichever is leading. */
+export function snapshotKongs(): HdSnapshot[] {
+  const out: HdSnapshot[] = [];
+  for (const p of [ACTIVE_KONG_SPRITE, INACTIVE_KONG_SPRITE]) {
+    const s = snapshotSlot(r16(p));
+    if (s) out.push(s);
+  }
+  return out;
+}
+
 /**
  * Remove Diddy's chunks from the OAM the PPU is about to draw: entries with one of his frame's
  * tiles (relative to his VRAM base), his palette, and a position inside his frame's box.
  * Returns true if any were found (i.e. the game actually drew Diddy this frame).
  */
 export function hideDiddyOam(s: HdSnapshot, dryRun = false): number {
+  return hideKongOam(s, dryRun).prio;
+}
+
+/**
+ * Same for any Kong. Returns his OBJ priority (-1 if he is not on screen) and his first OAM index
+ * (lower index = drawn in front when two sprites overlap).
+ */
+export function hideKongOam(s: HdSnapshot, dryRun = false): { prio: number; order: number } {
   const f = decodeFrame(s.gid);
-  if (!f) return -1;
+  if (!f) return { prio: -1, order: 128 };
   const base = s.prop & 0x1ff;
   const pal = (s.prop >> 9) & 7;
   const box = placement(s, f);
   const oam = hw.oam(); // 128 entries x 2 words: [y<<8|x], [attr<<8|tile]
   const high = new Uint8Array(hw.mem, (hw.ex as unknown as { hw_high_oam(): number }).hw_high_oam(), 32);
   let prio = -1;
+  let order = 128;
   for (let i = 0; i < 128; i++) {
     const w0 = oam[i * 2], w1 = oam[i * 2 + 1];
     if (((w1 >> 9) & 7) !== pal) continue;
@@ -184,16 +207,17 @@ export function hideDiddyOam(s: HdSnapshot, dryRun = false): number {
     if (x < box.left - 8 || x > box.left + f.w + 8 || y < box.top - 8 || y > box.top + f.h + 8) continue;
     if (!dryRun) oam[i * 2] = (w0 & 0x00ff) | (0xf0 << 8);
     prio = (w1 >> 12) & 3;
+    order = Math.min(order, i);
   }
-  return prio;
+  return { prio, order };
 }
 
 /**
- * Tell the PPU which OBJ priority the hidden Diddy had, so while drawing the frame it records where
- * something in front of him (foreground tiles, higher-priority sprites) is opaque.
+ * Ask the PPU to record, while drawing the frame, where something in front of each OBJ priority
+ * (foreground tiles, higher-priority sprites) is opaque.
  */
-export function setOcclusionPriority(prio: number) {
-  (hw.ex as unknown as { hw_hd_ghost(p: number): void }).hw_hd_ghost(prio);
+export function setOcclusion(on: boolean) {
+  (hw.ex as unknown as { hw_hd_occl_on(v: number): void }).hw_hd_occl_on(on ? 1 : 0);
 }
 
 let occlImg: ImageData, occlCanvas: HTMLCanvasElement, layer: HTMLCanvasElement;
@@ -215,7 +239,7 @@ export function placement(s: HdSnapshot, f: Frame) {
 }
 
 /** Draw the HD Diddy onto a context already holding the 4x-scaled frame. */
-export function drawDiddyHd(ctx: CanvasRenderingContext2D, s: HdSnapshot, brightness: number, alpha = 1) {
+export function drawDiddyHd(ctx: CanvasRenderingContext2D, s: HdSnapshot, brightness: number, alpha = 1, prio = -1) {
   const pal = (s.prop >> 9) & 7;
   const img = hdImage(s.gid, hw.cgram(), pal);
   if (!img) return;
@@ -234,9 +258,11 @@ export function drawDiddyHd(ctx: CanvasRenderingContext2D, s: HdSnapshot, bright
   const occl = new Uint8Array(hw.mem, (hw.ex as unknown as { hw_hd_occl(): number }).hw_hd_occl(), 256 * 224);
   const m32 = new Uint32Array(occlImg.data.buffer);
   let any = false;
+  const bit = prio >= 0 ? 1 << prio : 0;
   for (let i = 0; i < occl.length; i++) {
-    m32[i] = occl[i] ? 0xff000000 : 0;
-    any ||= occl[i] !== 0;
+    const o = occl[i] & bit;
+    m32[i] = o ? 0xff000000 : 0;
+    any ||= o !== 0;
   }
   if (any) {
     occlCanvas.getContext("2d")!.putImageData(occlImg, 0, 0);

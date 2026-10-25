@@ -3,16 +3,19 @@ import { readFileSync } from "node:fs";
 import { makeMachine, STATES_DIR } from "./lib/oracle.ts";
 import { bindMachine } from "../src/core/mem.ts";
 import { boot, frame, frameHooks } from "../src/game/machine.ts";
-import { snapshotDiddy, decodeFrame, placement, type HdSnapshot } from "../src/platform/hdsprites.ts";
+import { snapshotKongs, decodeFrame, placement, type HdSnapshot } from "../src/platform/hdsprites.ts";
 const [st = "lvl_pirate", n = "120", pad = "256"] = process.argv.slice(2);
 const { hw } = await makeMachine();
 hw.loadState(new Uint8Array(readFileSync(`${STATES_DIR}/${st}.state`)));
-let pending: HdSnapshot | null = null;
+let pendingAll: HdSnapshot[] = [];
 let bad = 0, ok = 0, miss = 0;
-frameHooks.preNmi = () => (pending = snapshotDiddy());
+frameHooks.preNmi = () => (pendingAll = snapshotKongs());
 frameHooks.preRender = () => {
-  if (!pending) return;
-  const f = decodeFrame(pending.gid)!;
+  for (const pending of pendingAll) check(pending);
+};
+function check(pending: HdSnapshot) {
+  const f = decodeFrame(pending.gid);
+  if (!f) return;
   const p = placement(pending, f);
   const base = pending.prop & 0x1ff, pal = (pending.prop >> 9) & 7;
   const oam = hw.oam();
@@ -39,6 +42,6 @@ frameHooks.preRender = () => {
     bad++;
     if (bad <= 6) console.log(`gid=${pending.gid.toString(16)} flip=${+p.hflip}${+p.vflip}\n  exp ${exp.join(" ")}\n  got ${got.join(" ")}`);
   }
-};
+}
 for (let i = 0; i < +n; i++) frame(i % 90 < 60 ? +pad : 0x80 | +pad);
 console.log(`${st}: aligned ${ok}, misaligned ${bad}, not drawn ${miss}`);

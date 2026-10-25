@@ -24,9 +24,9 @@ The debug panel shows how many routines are ported and which original routines s
 - PORTING.md: how the port is done and verified against the original.
 - src/game/<bank>/: the ported code, one folder per original ROM bank, labels kept.
 
-## HD Diddy (optional enhancement)
+## HD Kongs (optional enhancement)
 
-`src/platform/hdsprites.ts` redraws Diddy at 4x. It reads the frame the game chose (the sprite's
+`src/platform/hdsprites.ts` redraws Diddy and Dixie at 4x. It reads the frame the game chose (the sprite's
 `current_graphic`), decodes it straight from the ROM, colors it with the live palette, upscales it
 with xBRZ and draws it on a 4x canvas; the game's own OAM chunks for Diddy are removed just
 before the PPU draws the frame, so nothing else in the game changes. `npx tsx test/hd_align.ts

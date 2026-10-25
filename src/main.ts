@@ -9,7 +9,7 @@ import { loadStoredRom, storeRom, sha256, normalizeRom, EXPECTED_SHA256, loadBlo
 import { bindMachine } from "./core/mem";
 import { boot, frame, frameHooks } from "./game/machine";
 import { hdScreenActive, setSplit, drawHdScreen, hdAll } from "./platform/hdscreen";
-import { HD_SCALE, snapshotDiddy, hideDiddyOam, drawDiddyHd, setOcclusionPriority, type HdSnapshot } from "./platform/hdsprites";
+import { HD_SCALE, snapshotKongs, hideKongOam, drawDiddyHd, setOcclusion, type HdSnapshot } from "./platform/hdsprites";
 import { fallbackStats } from "./core/hybrid";
 import { portedNames } from "./core/cpu";
 import { labelAt } from "./core/sym";
@@ -39,22 +39,24 @@ async function start(rom: Uint8Array) {
   boot();
   if (import.meta.env.DEV) (window as any).__dkc2 = { hw, hd: (v: boolean) => (hdOnRef.v = v), ghost: (v: boolean) => (ghost.v = v), all: (v: boolean) => (hdAll.v = v) };
   attachKeyboard(window);
-  // HD Diddy: remember what he looked like when the OAM being displayed was built, take his
-  // original chunks out of that OAM, and draw the upscaled frame in their place
+  // HD Kongs: remember what they looked like when the OAM being displayed was built, take their
+  // original chunks out of that OAM, and draw the upscaled frames in their place
   const hdOnRef = { v: true };
   const ghost = { v: false }; // dev: keep the original sprite and draw HD half-transparent on top
-  let pending: HdSnapshot | null = null;
-  let shown: HdSnapshot | null = null;
+  let pending: HdSnapshot[] = [];
+  let shown: { s: HdSnapshot; prio: number; order: number }[] = [];
   frameHooks.preNmi = () => {
-    pending = hdOnRef.v ? snapshotDiddy() : null;
+    pending = hdOnRef.v ? snapshotKongs() : [];
   };
   let screenHd = false;
   frameHooks.preRender = () => {
     screenHd = hdOnRef.v && hdScreenActive();
     setSplit(screenHd);
-    const prio = pending ? hideDiddyOam(pending, ghost.v) : -1;
-    shown = prio >= 0 ? pending : null;
-    setOcclusionPriority(ghost.v ? -1 : prio);
+    shown = pending
+      .map((s) => ({ s, ...hideKongOam(s, ghost.v) }))
+      .filter((k) => k.prio >= 0)
+      .sort((a, b) => b.order - a.order); // back to front, like the OAM order
+    setOcclusion(shown.length > 0 && !ghost.v);
   };
   const toast = (msg: string) => {
     const t = $("toast");
@@ -63,6 +65,7 @@ async function start(rom: Uint8Array) {
     clearTimeout((t as any)._h);
     (t as any)._h = setTimeout(() => (t.hidden = true), 1500);
   };
+  window.addEventListener("gamepadconnected", (e) => toast(`Controller: ${(e as GamepadEvent).gamepad.id.slice(0, 40)}`));
   window.addEventListener("keydown", async (e) => {
     if (e.code === "F2") {
       e.preventDefault();
@@ -112,7 +115,7 @@ async function start(rom: Uint8Array) {
     baseCtx.putImageData(image, 0, 0);
     ctx2d.imageSmoothingEnabled = false;
     if (!screenHd || !drawHdScreen(ctx2d, hw.ex.hw_brightness())) ctx2d.drawImage(base, 0, 0, 256 * HD_SCALE, 224 * HD_SCALE);
-    if (shown) drawDiddyHd(ctx2d, shown, hw.ex.hw_brightness(), ghost.v ? 0.5 : 1);
+    for (const k of shown) drawDiddyHd(ctx2d, k.s, hw.ex.hw_brightness(), ghost.v ? 0.5 : 1, ghost.v ? -1 : k.prio);
   };
   if (import.meta.env.DEV)
     Object.assign((window as any).__dkc2, {
