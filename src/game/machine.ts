@@ -34,6 +34,9 @@ export function boot() {
  * following calls to frame() just let those already-rendered frames pass.
  * Returns false for frames where no game logic ran.
  */
+/** Optional presentation hooks (HD sprites): before the NMI, and before the PPU draws the frame. */
+export const frameHooks: { preNmi?: () => void; preRender?: () => void } = {};
+
 let pendingLag = 0;
 export let lagFrames = 0;
 export function frame(pad: number, pad2 = 0): boolean {
@@ -45,6 +48,7 @@ export function frame(pad: number, pad2 = 0): boolean {
     (hw.ex as unknown as { hw_force_autojoy(a: number, b: number): void }).hw_force_autojoy(pad, pad2);
     return false;
   }
+  frameHooks.preNmi?.();
   clearFrameEnded();
   enableTraps(true);
   const v0 = hw.ex.hw_vblank_count();
@@ -58,9 +62,11 @@ export function frame(pad: number, pad2 = 0): boolean {
     lagFrames += extra;
     pendingLag = extra;
     // we are inside (or past) the VBlank of the last incomplete frame: render up to the next one
+    frameHooks.preRender?.();
     hw.runToVblank();
     return true;
   }
+  frameHooks.preRender?.();
   hw.runToVblank();
   return true;
 }
