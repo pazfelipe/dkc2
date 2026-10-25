@@ -9,7 +9,7 @@
  */
 import { cpuTime } from "../b80/b80a_util";
 import { r16, w8, w16, rom8, rom16, io8, io16 } from "../../core/mem";
-import { setRetMode, RET_RTS, runOriginal, KIND_JSR } from "../../core/hybrid";
+import { setRetMode, RET_RTS } from "../../core/hybrid";
 import { reg, register, callPtr } from "../../core/cpu";
 import { L, R, C, level, rel_level, DMA, PPU, CPU } from "../../core/sym";
 import {
@@ -39,6 +39,7 @@ import {
   CODE_B5AC9C,
   CODE_B5B0FC,
   CODE_BBB104,
+  set_active_kong_global,
 } from "../../gen/routines";
 import { jslLabel } from "./bba_util";
 
@@ -46,7 +47,6 @@ const GRAPHICS_INIT_TABLE = L("graphics_init_table");
 const DMA_INIT_TABLE = L("dma_init_table");
 const LEVEL_SONG_OVERRIDES = L("DATA_BB94C4");
 const lbl16 = (name: string) => L(name) & 0xffff;
-const SET_ACTIVE_KONG_CALL = L("CODE_BB9210") + 0x14; // $BB9224
 
 const isStarsBonus = () =>
   r16(level.type) === C.bonus_level_type && (r16(level.bonus_type) & 0xff) === C.collect_the_stars_bonus_type;
@@ -63,11 +63,10 @@ export function CODE_BB9210() {
   clear_noncritical_wram();
   w16(R.game_state_flags, r16(R.game_state_flags) & ~0x0144);
   w16(R.game_state_flags_2, r16(R.game_state_flags_2) & ~0x0012);
-  // LDA active_kong_number / JSL set_active_kong_global: set_active_kong begins with BNE on the
-  // flags of that LDA, and the hybrid layer only passes the carry into original code, so these
-  // two original instructions are run as they are ($BB9224-$BB922A) on the reference CPU.
+  // LDA active_kong_number / JSL set_active_kong_global (its BNE tests the loaded value)
   reg.a = r16(R.active_kong_number);
-  runOriginal(SET_ACTIVE_KONG_CALL, KIND_JSR, reg.db, 0, 0, [SET_ACTIVE_KONG_CALL + 7]);
+  reg.z = reg.a === 0;
+  set_active_kong_global();
   w16(0x2f, r16(R.active_frame_counter) ^ r16(0x2f)); // stir the RNG seed
   CODE_BB938B();
   w16(R.water_y_position, 0x8000);
