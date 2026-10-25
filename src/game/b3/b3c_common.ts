@@ -306,7 +306,7 @@ export function CODE_B3D916() {
   CODE_BBBB99();
 }
 
-const MAIN_TABLE = L("bank_B3_sprite_main_handler") + 4;
+const MAIN_TABLE = L("bank_B3_sprite_main_handler_main_table");
 
 /** $B3D91D — run the sprite code selected by A (clapper, wind changers, timer, barrels, ...). */
 export function bank_B3_sprite_main_handler() {
