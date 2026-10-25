@@ -49,6 +49,7 @@ EXPORT uint16_t* hw_vram(void) { return snes->ppu->vram; }
 EXPORT uint16_t* hw_cgram(void) { return snes->ppu->cgram; }
 EXPORT uint16_t* hw_oam(void) { return snes->ppu->oam; }
 EXPORT uint8_t* hw_high_oam(void) { return snes->ppu->highOam; }
+EXPORT int hw_brightness(void) { return snes->ppu->forcedBlank ? 0 : snes->ppu->brightness; }
 EXPORT uint8_t* hw_aram(void) { return snes->apu->ram; }
 EXPORT int hw_vpos(void) { return snes->vPos; }
 EXPORT int hw_hpos(void) { return snes->hPos; }

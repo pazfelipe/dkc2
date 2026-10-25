@@ -17,6 +17,7 @@ export interface HwExports {
   hw_cgram(): number;
   hw_oam(): number;
   hw_high_oam(): number;
+  hw_brightness(): number;
   hw_aram(): number;
   hw_vpos(): number;
   hw_hpos(): number;
