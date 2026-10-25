@@ -49,4 +49,7 @@ import "./bb/bba_ppu";
 import "./bb/bba_progress";
 import "./bb/bba_sprite_alloc";
 import "./bb/bba_util";
+import "./bb/bbb_level_config";
+import "./bb/bbb_sprite_loader";
+import "./bb/bbb_transitions";
 import "./bc/bc_clipping";
