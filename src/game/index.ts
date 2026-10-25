@@ -50,3 +50,6 @@ import "./bb/bba_progress";
 import "./bb/bba_sprite_alloc";
 import "./bb/bba_util";
 import "./bc/bc_clipping";
+import "./be/be2_movement";
+import "./be/be2_movement_b";
+import "./be/be2_util";
