@@ -17,6 +17,7 @@ import { r8, r16, w16, bus8 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { setRetMode, RET_RTL, RET_RTS } from "../../core/hybrid";
 import { L, R, C, level } from "../../core/sym";
+import { cpuTime } from "../b80/b80a_util";
 import {
   CODE_B5ADA9,
   CODE_B5AFB4,
@@ -157,6 +158,7 @@ export function CODE_B5B555() {
   columnTileOffsets(x);
   decodeChunks(COLUMN, COLUMN_FLIPS, 0xc0);
   CODE_B5ADA9();
+  cpuTime(15800); // measured cost of decoding one level column on the console (as part A's builders)
 }
 
 /** $B5B66D — build the level row entering the screen (rows of $C0 bytes). */
@@ -198,6 +200,7 @@ export function CODE_B5B788() {
   columnTileOffsets(x);
   decodeChunks(COLUMN, COLUMN_FLIPS, 0x40);
   CODE_B5ADA9();
+  cpuTime(15800); // measured cost of decoding one level column on the console (as part A's builders)
 }
 
 /** $B5B89A — vertical levels: build the level row entering the screen. */

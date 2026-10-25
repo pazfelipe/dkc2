@@ -55,6 +55,28 @@ export const ceAdd = (n: number) => w16(0xce, (r16(0xce) + n) & 0xffff);
 /** Pointer to Krow's parameters for the current HP (`DATA_B6FE24[hp]`). */
 export const krowPhase = () => rom16(0xb60000 | ((KROW_PHASE_TABLE + r16(BOSS.hp) * 2) & 0xffff));
 
+/**
+ * $B6C603 — command $19 (piece set, pieces data): Krow's egg bursts. Sets $2E bit 5, keeps the
+ * two script words in $10/$52 and $54, and remembers where the egg is ($0660/$0662).
+ */
+export function boss_command_code_19(): void {
+  const y = reg.y;
+  const x = r16(R.current_sprite);
+  reg.x = x;
+  wr(x, 0x2e, rd(x, 0x2e) | 0x0020);
+  const set = db16(y);
+  wr(x, 0x10, set);
+  wr(x, 0x52, set);
+  wr(x, 0x54, db16(y + 2));
+  wr(x, 0x44, 0);
+  w16(0x0660, rd(x, 0x06));
+  w16(0x0662, rd(x, 0x0a));
+  w16(0x06cf, 0x0004);
+  reg.a = (y + 4) & 0xffff;
+  reg.c = false;
+  reg.y = reg.a;
+}
+
 /** $B6C635 — command $18: allow the egg hit again (clear bit 15 of $06A1). */
 export function boss_command_code_18(): void {
   reg.a = r16(0x06a1) & 0x7fff;
@@ -1347,7 +1369,7 @@ export function parse_boss_command(): void {
 }
 
 registerRts({
-  boss_command_code_18, boss_command_code_1C, boss_command_code_16, boss_command_code_15,
+  boss_command_code_19, boss_command_code_18, boss_command_code_1C, boss_command_code_16, boss_command_code_15,
   boss_command_code_13, boss_command_code_10, boss_command_code_11, boss_command_code_0E,
   boss_command_code_0C, CODE_B6C704, CODE_B6C718, CODE_B6C721, CODE_B6C750, CODE_B6C76D,
   CODE_B6C781, CODE_B6C788, CODE_B6C79B, CODE_B6C7A6, CODE_B6C7AD, boss_command_code_0D,

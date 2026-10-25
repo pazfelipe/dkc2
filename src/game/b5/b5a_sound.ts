@@ -341,8 +341,15 @@ function clear_sound_buffers() {
 export function queue_sound_effect() {
   const sound = reg.a & 0xffff;
   let x = r16(R.next_sound_effect_slot);
+  const last = r16(SPC_COMMAND_BUFFER + x);
+  // The carry of `CMP spc_command_buffer,x` survives to the RTL (nothing after it touches C),
+  // and callers feed it to the RNG (CODE_B4C175 rotates C into its seed), e.g. Krow's egg rain.
+  // N/Z come from the final PLB (the caller's data bank).
+  reg.c = sound >= last;
+  reg.z = (reg.db & 0xff) === 0;
+  reg.n = (reg.db & 0x80) !== 0;
   // the same effect twice in a row is only queued once
-  if (sound !== r16(SPC_COMMAND_BUFFER + x)) {
+  if (sound !== last) {
     x = (x + 2) & 0x000e;
     if (r16(SPC_COMMAND_BUFFER + x) === 0) {
       // otherwise the buffer is full and the effect is dropped

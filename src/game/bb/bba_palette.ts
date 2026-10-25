@@ -17,6 +17,16 @@ import { reg, register } from "../../core/cpu";
 import { L, R, C, sprite, sprite_palette_dma, level, DMA, PPU, CPU } from "../../core/sym";
 import { throw_exception } from "../../gen/routines";
 import { mergeBits, read16x } from "./bba_util";
+import { cpuTime } from "../b80/b80a_util";
+
+/**
+ * Console cost per palette word of the two loops below, in master cycles (opcode fetches from
+ * FastROM, WRAM data accesses, DRAM refresh included): LDA.l/STA,x/INX/INX/CPX/BNE = 140, plus
+ * EOR #imm = 163. Together they match the 568,660 cycles CODE_BB886D takes on the original
+ * (1876 words), which is about 417 scanlines: enough to move the end of a level load by a frame.
+ */
+const COPY_WORD_CYCLES = 140;
+const INVERT_WORD_CYCLES = 163;
 
 const SPRITE_PALETTE_TABLE = L("sprite_palette_table");
 const PALETTE_BANK = (L("palette_data_bank") >> 16) & 0xff;
@@ -67,6 +77,7 @@ export function CODE_BB886D() {
   for (let x = 0; x !== WRITABLE_PALETTE_SIZE; x += 2) {
     w16(WRITABLE_PALETTE_RAM + x, r16(WRITABLE_PALETTE_RAM + x) ^ 0xffff);
   }
+  cpuTime((WRITABLE_PALETTE_SIZE >> 1) * INVERT_WORD_CYCLES);
   reg.x = WRITABLE_PALETTE_SIZE;
 }
 
@@ -140,11 +151,14 @@ export function CODE_BB8920() {
 /** $BB895A — copy the writable palettes from ROM to RAM, from X up to their end. */
 export function copy_writable_palettes_to_RAM() {
   let x = reg.x & 0xffff;
+  let words = 0;
   do {
     reg.a = rom16(WRITABLE_PALETTE_START + x);
     w16(WRITABLE_PALETTE_RAM + x, reg.a);
     x = (x + 2) & 0xffff;
+    words++;
   } while (x !== WRITABLE_PALETTE_SIZE);
+  cpuTime(words * COPY_WORD_CYCLES);
   reg.x = x;
 }
 
