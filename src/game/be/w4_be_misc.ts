@@ -13,7 +13,6 @@ import {
   CODE_B3C6AB,
   CODE_BBBB99,
   CODE_B59C00,
-  CODE_B3D46C,
   process_sprite_animation,
   process_current_movement,
   delete_sprite_handle_deallocation,
@@ -30,6 +29,8 @@ import {
   queue_or_reset_looping_sound_effect,
 } from "../../gen/routines";
 import { spriteStateDispatch } from "./be1_util";
+// CODE_B3D46C reads its caller's bank from the stack: use the b3 helper that takes the bank
+import { CODE_B3D46C } from "../b3/b3c_platforms";
 import { g, s, inc, dec, neg, cur } from "./w4_be_util";
 
 const DOUBLE_ZINGERS_TABLE = L("DATA_BEEA85");
@@ -420,7 +421,7 @@ function CODE_BEED98(): void {
   w16(TIRE_VRAM, r16(TIRE_VRAM) - 1);
   if (r16(TIRE_VRAM) & 0x00ff) return;
   reg.a = TIRE_CLEANUP;
-  CODE_B3D46C();
+  CODE_B3D46C(0xbe);
 }
 
 /** $BEEDEE — count the tire; start the rolling sound with the first one. */
