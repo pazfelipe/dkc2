@@ -7,7 +7,9 @@ import { AudioOut } from "./platform/audio";
 import { attachKeyboard, readPad } from "./platform/input";
 import { loadStoredRom, storeRom, sha256, normalizeRom, EXPECTED_SHA256, loadBlob, storeBlob } from "./platform/romstore";
 import { bindMachine } from "./core/mem";
-import { boot, frame } from "./game/machine";
+import { boot, frame, frameHooks } from "./game/machine";
+import { hdScreenActive, setSplit, drawHdScreen, hdAll } from "./platform/hdscreen";
+import { HD_SCALE, snapshotKongs, hideKongOam, drawDiddyHd, setOcclusion, type HdSnapshot } from "./platform/hdsprites";
 import { fallbackStats } from "./core/hybrid";
 import { portedNames } from "./core/cpu";
 import { labelAt } from "./core/sym";
@@ -15,7 +17,10 @@ import { labelAt } from "./core/sym";
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const canvas = $<HTMLCanvasElement>("screen");
 const ctx2d = canvas.getContext("2d")!;
-const image = ctx2d.createImageData(256, 224);
+// the SNES frame is composed at 256x224, then scaled 4x so HD sprites can be drawn on top
+const base = Object.assign(document.createElement("canvas"), { width: 256, height: 224 });
+const baseCtx = base.getContext("2d")!;
+const image = baseCtx.createImageData(256, 224);
 const audio = new AudioOut();
 const NTSC_FPS = 60.0988;
 
@@ -32,7 +37,27 @@ async function start(rom: Uint8Array) {
   if (sram && sram.length === hw.sram().length) hw.sram().set(sram);
   let lastSram = hw.sram().slice();
   boot();
+  if (import.meta.env.DEV) (window as any).__dkc2 = { hw, hd: (v: boolean) => (hdOnRef.v = v), ghost: (v: boolean) => (ghost.v = v), all: (v: boolean) => (hdAll.v = v) };
   attachKeyboard(window);
+  // HD Kongs: remember what they looked like when the OAM being displayed was built, take their
+  // original chunks out of that OAM, and draw the upscaled frames in their place
+  const hdOnRef = { v: true };
+  const ghost = { v: false }; // dev: keep the original sprite and draw HD half-transparent on top
+  let pending: HdSnapshot[] = [];
+  let shown: { s: HdSnapshot; prio: number; order: number }[] = [];
+  frameHooks.preNmi = () => {
+    pending = hdOnRef.v ? snapshotKongs() : [];
+  };
+  let screenHd = false;
+  frameHooks.preRender = () => {
+    screenHd = hdOnRef.v && hdScreenActive();
+    setSplit(screenHd);
+    shown = pending
+      .map((s) => ({ s, ...hideKongOam(s, ghost.v) }))
+      .filter((k) => k.prio >= 0)
+      .sort((a, b) => b.order - a.order); // back to front, like the OAM order
+    setOcclusion(shown.length > 0 && !ghost.v);
+  };
   const toast = (msg: string) => {
     const t = $("toast");
     t.textContent = msg;
@@ -40,6 +65,7 @@ async function start(rom: Uint8Array) {
     clearTimeout((t as any)._h);
     (t as any)._h = setTimeout(() => (t.hidden = true), 1500);
   };
+  window.addEventListener("gamepadconnected", (e) => toast(`Controller: ${(e as GamepadEvent).gamepad.id.slice(0, 40)}`));
   window.addEventListener("keydown", async (e) => {
     if (e.code === "F2") {
       e.preventDefault();
@@ -75,11 +101,30 @@ async function start(rom: Uint8Array) {
   window.addEventListener("keydown", (e) => {
     if (e.code === "Backquote") debug.hidden = !debug.hidden;
     if (e.code === "KeyP") paused = !paused;
+    if (e.code === "KeyH") {
+      hdOnRef.v = !hdOnRef.v;
+      toast(hdOnRef.v ? "HD on" : "HD off (original graphics)");
+    }
   });
   const unlock = () => audio.start();
   window.addEventListener("keydown", unlock, { once: true });
   window.addEventListener("pointerdown", unlock, { once: true });
 
+  const present = () => {
+    image.data.set(hw.frameRGBA());
+    baseCtx.putImageData(image, 0, 0);
+    ctx2d.imageSmoothingEnabled = false;
+    if (!screenHd || !drawHdScreen(ctx2d, hw.ex.hw_brightness())) ctx2d.drawImage(base, 0, 0, 256 * HD_SCALE, 224 * HD_SCALE);
+    for (const k of shown) drawDiddyHd(ctx2d, k.s, hw.ex.hw_brightness(), ghost.v ? 0.5 : 1, ghost.v ? -1 : k.prio);
+  };
+  if (import.meta.env.DEV)
+    Object.assign((window as any).__dkc2, {
+      pause: (v: boolean) => (paused = v),
+      step: (n: number, pad = 0) => {
+        for (let i = 0; i < n; i++) frame(pad);
+        present();
+      },
+    });
   const tick = (now: number) => {
     acc += Math.min(now - last, 100);
     last = now;
@@ -89,15 +134,13 @@ async function start(rom: Uint8Array) {
       acc -= step;
       if (!paused) {
         frame(readPad());
-        if (audio.buffered < 4000) audio.push(hw.audio(534).slice());
+        audio.enqueue(hw.drainAudio());
         frames++;
       }
       ran++;
     }
-    if (ran) {
-      image.data.set(hw.frameRGBA());
-      ctx2d.putImageData(image, 0, 0);
-    }
+    audio.pump();
+    if (ran) present();
     if (now - fpsT > 1000) {
       fps = (frames * 1000) / (now - fpsT);
       frames = 0;
