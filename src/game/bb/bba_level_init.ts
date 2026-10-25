@@ -7,6 +7,7 @@
  * level's slope and init routines (pointers kept in level[0]), sets up HDMA (dma_init_table) and
  * starts the music.
  */
+import { cpuTime } from "../b80/b80a_util";
 import { r16, w8, w16, rom8, rom16, io8, io16 } from "../../core/mem";
 import { setRetMode, RET_RTS, runOriginal, KIND_JSR } from "../../core/hybrid";
 import { reg, register, callPtr } from "../../core/cpu";
@@ -226,11 +227,15 @@ export function CODE_BB93C0() {
 /** $BB93C9 — loop over the table from X down to 2. */
 export function CODE_BB93C9() {
   let x = reg.x & 0xffff;
+  let iterations = 0;
   do {
     const v = r16(0x7e8f28 + x);
     if (v < r16(0x19ca)) w16(0x19ca, v);
     x = (x - 2) & 0xffff;
+    iterations++;
   } while (x !== 0);
+  // ~138 master cycles per pass on the console (measured); with X = 0 it wraps 32768 times
+  cpuTime(iterations * 138);
   reg.x = x;
   reg.a = (((r16(0x19ca) ^ 0xffff) + 0x003f + 1) & 0xffff);
   w16(0x19ca, reg.a);

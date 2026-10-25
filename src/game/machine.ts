@@ -9,7 +9,7 @@
  */
 import { hw, r16, w16 } from "../core/mem";
 import { reg, implAt } from "../core/cpu";
-import { runOriginal, KIND_INT, KIND_JSL, clearFrameEnded, enableTraps } from "../core/hybrid";
+import { runOriginal, KIND_INT, KIND_JSL, clearFrameEnded, enableTraps, isFrameEnd } from "../core/hybrid";
 import { L, R } from "../core/sym";
 import "../gen/routines"; // all stubs: fallback dispatch + return modes
 import "./index";
@@ -19,8 +19,12 @@ export function boot() {
   reg.a = reg.x = reg.y = 0;
   reg.c = false;
   const reset = implAt(L("RESET_start"));
-  if (reset) reset();
-  else runOriginal(L("RESET_start"), KIND_JSL, 0x00, 0, 3);
+  try {
+    if (reset) reset();
+    else runOriginal(L("RESET_start"), KIND_JSL, 0x00, 0, 3);
+  } catch (e) {
+    if (!isFrameEnd(e)) throw e;
+  }
 }
 
 /**
@@ -53,8 +57,12 @@ export function frame(pad: number, pad2 = 0): boolean {
   enableTraps(true);
   const v0 = hw.ex.hw_vblank_count();
   const nmi = implAt(L("NMI_start"));
-  if (nmi) nmi();
-  else runOriginal(L("NMI_start"), KIND_INT, 0x80, 0, 0);
+  try {
+    if (nmi) nmi();
+    else runOriginal(L("NMI_start"), KIND_INT, 0x80, 0, 0);
+  } catch (e) {
+    if (!isFrameEnd(e)) throw e; // the frame's WAI (see hybrid.endFrame)
+  }
   const extra = (hw.ex.hw_vblank_count() - v0) >>> 0;
   if (extra > 0) {
     // NMIs that fired while the logic was still running: run_incomplete_frame each

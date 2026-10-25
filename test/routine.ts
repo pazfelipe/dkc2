@@ -14,7 +14,7 @@ import { makeMachine, saveVector, loadVectors, refCall, snap, diffSnaps, fmtDiff
 import { reg, routineByName } from "../src/core/cpu.ts";
 import { parseInput } from "./lib/input.ts";
 import "../src/game/index.ts";
-import { enableTraps, clearFrameEnded } from "../src/core/hybrid.ts";
+import { enableTraps, clearFrameEnded, isFrameEnd } from "../src/core/hybrid.ts";
 
 const [cmd, label, ...rest] = process.argv.slice(2);
 const opt = (name: string, def?: string) => {
@@ -77,7 +77,7 @@ if (cmd === "capture") {
     try {
       fn();
     } catch (e) {
-      err = e;
+      if (!isFrameEnd(e)) err = e; // ending the frame (WAI) is a normal exit
     }
     const portSnap = snap(hw);
     const d = diffSnaps(refSnap, portSnap);

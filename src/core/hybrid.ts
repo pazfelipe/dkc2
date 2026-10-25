@@ -46,8 +46,17 @@ export let frameEnded = false;
 export function clearFrameEnded() {
   frameEnded = false;
 }
-export function endFrame() {
+/**
+ * Thrown to end the frame: the original ends a frame with WAI and abandons its whole call stack
+ * (the next NMI starts fresh), so nothing after it may run. machine.frame() catches it.
+ */
+export const FRAME_END = Object.freeze({ frameEnd: true });
+export function isFrameEnd(e: unknown): boolean {
+  return e === FRAME_END;
+}
+export function endFrame(): never {
   frameEnded = true;
+  throw FRAME_END;
 }
 
 const retModes = new Map<number, number>();
@@ -101,11 +110,16 @@ export function runOriginal(addr: number, kind: number, db: number, dp: number, 
     trapStats.set(t, (trapStats.get(t) ?? 0) + 1);
     loadRegs(e);
     reg.mx = -1;
-    implAt(t)!();
+    try {
+      implAt(t)!();
+    } catch (err) {
+      if (!isFrameEnd(err)) throw err;
+    }
     const f = (reg.c ? 1 : 0) | (reg.z ? 2 : 0) | (reg.n ? 4 : 0) | (reg.v ? 8 : 0);
     if (frameEnded) {
-      code = e.hw_cpu_resume(3, reg.a, reg.x, reg.y, f, 0, reg.db & 0xff, reg.mx);
-      break;
+      // the port ended the frame: drop this reference-CPU call level too, and keep unwinding
+      e.hw_cpu_resume(3, reg.a, reg.x, reg.y, f, 0, reg.db & 0xff, reg.mx);
+      throw FRAME_END;
     }
     const mode = retModes.get(t) ?? RET_RTL;
     const target = mode === RET_SPRITE ? ((r16(R.sprite_return_bank) << 16) | r16(R.sprite_return_address)) & 0xffffff : 0;
@@ -119,7 +133,7 @@ export function runOriginal(addr: number, kind: number, db: number, dp: number, 
     throw new Error(`original routine did not return: ${labelAt(addr) ?? addr.toString(16)} (stuck at $${pc.toString(16)}, db=${e.hw_cpu_reg(5).toString(16)})`);
   }
   loadRegs(e);
-  if (e.hw_cpu_wai_hit()) frameEnded = true;
+  if (e.hw_cpu_wai_hit()) endFrame(); // the original reached its WAI: the frame is over
 }
 
 export interface Stub {
