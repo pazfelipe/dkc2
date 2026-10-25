@@ -100,10 +100,13 @@ export function CODE_B5C94D() {
   const chunk = longIndexed16(0x98, yIn);
   w16(0xa8, chunk);
   reg.x = yIn; // TYX
-  if (chunk === 0) return noGround(yIn);
+  if (chunk === 0) return noGround(yIn); // carry: left as the caller had it
   if (chunk & 0x4000) w16(0xa2, r16(0xa6) ^ 0x001f); // horizontally flipped chunk
   const id = chunk & 0x3fff;
-  if (id >= r16(0xa0)) return noGround(yIn); // outside the collision map: nothing solid
+  if (id >= r16(0xa0)) {
+    reg.c = true; // CMP $A0; BCS
+    return noGround(yIn); // outside the collision map: nothing solid
+  }
   // 2 collision tiles per chunk: the right one for the right half
   let ti = (id << 2) & 0xffff;
   if (r16(0xa2) & 0x0010) ti += 2;
@@ -113,7 +116,10 @@ export function CODE_B5C94D() {
   if (chunk & 0x4000) tile ^= 0x8000;
   w16(0xac, tile);
   const fn = tile & 0x00ff;
-  if (fn === 0) return noGround(yIn);
+  if (fn === 0) {
+    reg.c = false; // carry out of ASL ASL of the (14-bit) chunk id
+    return noGround(yIn);
+  }
   reg.x = fn << 1;
   const ptr = rom16(HEIGHT_FUNCS + (fn << 1));
   w16(0xaa, ptr);
@@ -122,6 +128,7 @@ export function CODE_B5C94D() {
   if (f) f();
   else callPtr(0xb5, ptr);
   let h = reg.a & 0xffff;
+  reg.c = h >= 0x001f; // CMP #$001F
   if (!neg(h - 0x001f)) h = 0x001f;
   reg.a = h;
   reg.y = yIn;
@@ -137,7 +144,8 @@ function noGround(y: number) {
 // Map layouts
 // =============================================================================================
 
-type Index = (row: number, col: number) => number;
+/** Chunk map index of (row, column), and the carry out of the last ADC computing it. */
+type Index = (row: number, col: number) => [number, boolean];
 
 /** Common prologue: $A6 = x in chunk, $A4 = row (negated y, chunk aligned), $32 = column * 2. */
 function prologue() {
@@ -148,16 +156,20 @@ function prologue() {
 }
 
 /** Look up the chunk at index y, then copy $AC to $AE (the attributes of the first chunk). */
-function firstChunk(y: number): number {
+function firstChunk(y: number, carryIn: boolean): number {
   reg.y = y;
+  reg.c = carryIn;
   CODE_B5C94D();
   w16(0xae, r16(0xac));
   return reg.a;
 }
 
-function chunkAt(y: number): number {
+/** Look up the chunk at index y; the caller then does `CMP #$0000` (carry set). */
+function chunkAt(y: number, carryIn: boolean): number {
   reg.y = y;
+  reg.c = carryIn;
   CODE_B5C94D();
+  reg.c = true;
   return reg.a;
 }
 
@@ -168,14 +180,15 @@ function chunkAt(y: number): number {
  */
 function searchRowMajor(index: Index, stride: number) {
   prologue();
-  let y = index(r16(0xa4) ^ 0xffe0, r16(0x32));
-  let h = firstChunk(y);
+  let [y, cy] = index(r16(0xa4) ^ 0xffe0, r16(0x32));
+  let h = firstChunk(y, cy);
   if (!neg(h)) {
     if (h !== 0x001f) return finish(h, h | r16(0xa4));
     // full chunk: maybe the ground continues in the chunk above
+    const borrow = y < stride;
     y = (y - stride) & 0xffff;
     w16(0x32, r16(0xac));
-    h = chunkAt(y);
+    h = chunkAt(y, !borrow);
     if (neg(h)) {
       w16(0xac, r16(0x32)); // nothing above: keep this chunk's attributes, surface at its top
       return finish(0x001f, 0x001f | r16(0xa4));
@@ -184,8 +197,9 @@ function searchRowMajor(index: Index, stride: number) {
   }
   for (let i = 0; i < 2; i++) {
     y = (y + stride) & 0xffff;
+    const cy2 = r16(0xa4) >= 0x20;
     w16(0xa4, r16(0xa4) - 0x20);
-    h = chunkAt(y);
+    h = chunkAt(y, cy2);
     if (!neg(h)) return finish(h, h | r16(0xa4));
   }
   // no ground in 3 chunks
@@ -233,14 +247,19 @@ function finish(h: number, a: number) {
   retA(r);
 }
 
+function add16(a: number, b: number, c: boolean): [number, boolean] {
+  const s = a + b + (c ? 1 : 0);
+  return [s & 0xffff, s > 0xffff];
+}
+
 /** $B5C414 — maps with $40 bytes (32 chunks) per row. */
 export function CODE_B5C414() {
-  searchRowMajor((row, col) => (((row << 1) & 0xffff) + col) & 0xffff, 0x40);
+  searchRowMajor((row, col) => add16((row << 1) & 0xffff, col, false), 0x40);
 }
 
 /** $B5C510 — maps with $20 bytes (16 chunks) per row. */
 export function CODE_B5C510() {
-  searchRowMajor((row, col) => (row + col) & 0xffff, 0x20);
+  searchRowMajor((row, col) => add16(row, col, false), 0x20);
 }
 
 /** $B5C60B — maps with $A0 bytes per row (row * 5). */
@@ -248,7 +267,7 @@ export function CODE_B5C60B() {
   searchRowMajor((row, col) => {
     w16(0x36, row);
     const s = ((row << 2) & 0xffff) + row; // ASL ASL CLC ADC $36: its carry goes into the next ADC
-    return ((s & 0xffff) + (s > 0xffff ? 1 : 0) + col) & 0xffff;
+    return add16(s & 0xffff, col, s > 0xffff);
   }, 0xa0);
 }
 
@@ -258,7 +277,7 @@ export function CODE_B5C70C() {
     const r2 = (row << 1) & 0xffff;
     w16(0x36, r2);
     const s = ((r2 << 1) & 0xffff) + r2;
-    return ((s & 0xffff) + (s > 0xffff ? 1 : 0) + col) & 0xffff;
+    return add16(s & 0xffff, col, s > 0xffff);
   }, 0xc0);
 }
 
@@ -274,15 +293,16 @@ export function CODE_B5C82C() {
   if (t >= 0x01ff) t = 0x01ff;
   w16(0xa4, (-t) & 0x01e0);
   w16(0x32, r16(0x32) & 0xffe0);
-  let y = (((r16(0xa4) ^ 0x01e0) >> 4) + r16(0x32)) & 0xffff;
-  let h = firstChunk(y);
+  const [y0, cy] = add16((r16(0xa4) ^ 0x01e0) >> 4, r16(0x32), false);
+  let y = y0;
+  let h = firstChunk(y, cy);
   if (!neg(h)) {
     if (h !== 0x001f) return finish82C(h, h | r16(0xa4));
     // full chunk: look at the chunk above (unless at the top of the column)
     if ((y & 0x001e) === 0) return finish82C(0x001f, 0x01ff);
     y = (y - 2) & 0xffff;
     w16(0x32, r16(0xac));
-    h = chunkAt(y);
+    h = chunkAt(y, true); // carry still set by the CMP #$001F that found the full chunk
     if (neg(h)) {
       w16(0xac, r16(0x32));
       return finish82C(0x001f, 0x001f | r16(0xa4));
@@ -291,9 +311,10 @@ export function CODE_B5C82C() {
   }
   for (let i = 0; i < 2; i++) {
     y = (y + 2) & 0xffff;
-    if ((y & 0x001e) === 0) break; // bottom of the column
+    if ((y & 0x001e) === 0) break; // bottom of the column (carry: from the last chunk lookup)
+    const cy2 = r16(0xa4) >= 0x20;
     w16(0xa4, r16(0xa4) - 0x20);
-    h = chunkAt(y);
+    h = chunkAt(y, cy2);
     if (!neg(h)) return finish82C(h, h | r16(0xa4));
   }
   w16(0xac, 0);
