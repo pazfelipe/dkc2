@@ -12,6 +12,7 @@ import { r8, r16, w16, io8, io16, ioR8, bus16, busW16, hw, wram } from "../../co
 import { reg, register } from "../../core/cpu";
 import { endFrame } from "../../core/hybrid";
 import { L, R, C, CPU, PPU, DMA } from "../../core/sym";
+import { cpuTime, MVN_BYTE } from "./b80a_util";
 import {
   vram_payload_handler_global,
   dma_palette,
@@ -100,6 +101,7 @@ function antiPiracyChecks(): number | null {
       }
     }
   }
+  cpuTime(0x1ffe * 134); // the scan loop (LDA abs,y / 3x CMP+BEQ / DEY / BPL per byte)
   // SRAM must be present (writable)
   const s = bus16(SRAM_BASE);
   busW16(SRAM_BASE, (s + 1) & 0xffff);
@@ -202,6 +204,7 @@ export function clear_vram_global() {
 export function start_engine() {
   // STZ $00 + MVN: zero bank $7E, then copy it over bank $7F
   wram.fill(0, 0, 0x20000);
+  cpuTime(2 * 0x10000 * MVN_BYTE);
   reg.db = 0x80;
   for (let x = 6; x >= 0; x -= 2) w16(R.piracy_string_result + x, bus16(RARE_STRING + x));
   reg.x = 0xfffe;

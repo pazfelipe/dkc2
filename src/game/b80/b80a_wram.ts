@@ -2,15 +2,18 @@
  * Bank $80 — WRAM clearing, OAM clearing, simple DMA helpers and the second RNG.
  *
  * The original clears memory with overlapping MVN block moves (STZ the first byte, then copy it
- * forward); here that is a plain fill. Like all ported logic it takes no emulated time.
+ * forward); here that is a plain fill plus the CPU time the MVN takes (cpuTime), because these
+ * clears are long enough to change how many lag frames a screen init spans.
  */
 import { r16, w16, io8, io16, wram, rom16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { L, R, DMA, CPU, wram_clear_table } from "../../core/sym";
+import { cpuTime, MVN_BYTE } from "./b80a_util";
 
-/** zero WRAM offsets [start, end) (0..$1FFFF) */
+/** zero WRAM offsets [start, end) (0..$1FFFF), with the CPU time of the original MVN */
 function zeroWram(start: number, end: number) {
   wram.fill(0, start, end);
+  cpuTime((end - start) * MVN_BYTE);
 }
 
 /** $808E6A — clear the WRAM that is rebuilt by every game mode init. */
@@ -37,7 +40,7 @@ export function clear_full_wram() {
   zeroWram(0x10000, 0x20000); // bank $7F
   zeroWram(0x0911, 0x10000); // $7E0911-$7EFFFF
   // $0034-$0906 (except the stack page)
-  wram.fill(0, 0x0034, 0x0100);
+  zeroWram(0x0034, 0x0100);
   zeroWram(0x0200, 0x0907);
   reg.db = 0x80;
   reg.a = 0xffff;

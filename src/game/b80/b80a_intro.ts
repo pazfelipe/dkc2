@@ -29,7 +29,7 @@ import {
 import { reset_controller_state } from "./b80a_input";
 import { init_registers, clear_vram, setup_title_screen_transition } from "./b80a_boot";
 import { dma_to_vram_global } from "./b80a_wram";
-import { queue_song, play_queued_song } from "./b80a_util";
+import { queue_song, play_queued_song, cpuTime } from "./b80a_util";
 
 const BGMODE = R.hdma_intro_bgmode; // HDMA tables (write_byte entries: count, value)
 const COLOR_MATH = R.hdma_intro_color_math;
@@ -85,10 +85,12 @@ export function init_rareware_logo() {
   // clear VRAM by hand ($4000 words; STZ $2118 / DEX / BNE)
   io16(PPU.vram_address, 0);
   for (let x = 0x4000; x !== 0; x--) io16(PPU.vram_write, 0);
+  cpuTime(0x4000 * 60);
   // mode 7 tile data (only the high bytes of VRAM words)
   decompress("DATA_FA4C3E");
   io16(PPU.vram_address, 0);
   for (let x = 0; x < 0x3400; x++) io8(PPU.vram_write_high, r8(0x7f0000 + x));
+  cpuTime(0x3400 * 188);
   reg.x = 0x3400;
   w16(0x32, R.vram_intro_mode_7_tilemap);
   reg.a = L("DATA_F547BC") & 0xffff;

@@ -4,7 +4,7 @@
  */
 import { r8, w8, r16, w16, bus16, rom16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
-import { jumpPtr } from "./b80a_util";
+import { jumpPtr, jsrPtr } from "./b80a_util";
 import { endFrame, frameEnded, setRetMode, RET_RTS } from "../../core/hybrid";
 import { L, R, C, CPU, level, sprite, sprite_table } from "../../core/sym";
 import { ioR8 } from "../../core/mem";
@@ -86,7 +86,7 @@ export function CODE_80880A() {
  */
 export function CODE_808819() {
   reg.x = (r16(R.nmi_sub_mode) << 1) & 0xffff;
-  jumpPtr(0x80, rom16(NMI_SUB_MODE_TABLE + reg.x));
+  jsrPtr(0x80, rom16(NMI_SUB_MODE_TABLE + reg.x));
   if (frameEnded) return;
   // the uploads must have finished inside VBlank (a debug check; throw_exception is a no-op)
   if (!(ioR8(CPU.ppu_status) & 0x80)) {
