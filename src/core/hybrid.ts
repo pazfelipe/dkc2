@@ -129,7 +129,11 @@ export function stub(addr: number, kind: number, db: number, dp: number, mx: num
   const f = (() => {
     const impl = implAt(addr);
     if (impl) impl();
-    else runOriginal(addr, kind, db, dp, mx);
+    else if (ret === RET_SPRITE) {
+      // leaves with JML [sprite_return_address]: stop there instead of running on
+      const back = ((r16(R.sprite_return_bank) << 16) | r16(R.sprite_return_address)) & 0xffffff;
+      runOriginal(addr, kind, db, dp, mx, [back]);
+    } else runOriginal(addr, kind, db, dp, mx);
   }) as Stub;
   f.addr = addr;
   registerStub(addr, f);

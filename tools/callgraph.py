@@ -17,7 +17,7 @@ DIS = "/home/claude/ref/dkc2dis"
 SYM = "/home/claude/work/dkc2.sym"
 
 TERMINAL = {"RTS", "RTL", "RTI", "JMP", "JML", "BRA", "BRL", "STP", "DATA"}
-label_re = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):")
+label_re = re.compile(r"^#?([A-Za-z_][A-Za-z0-9_]*):")
 ident_re = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
