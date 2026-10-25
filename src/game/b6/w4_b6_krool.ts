@@ -24,6 +24,19 @@ import {
 import { cur, rd, wr, dec, inc, neg, snd, jsrAddr, jslAddr, registerSprite, registerRts, registerRtl } from "./b6ba_common";
 import { lda, lo, ge, add } from "./w4_b6_util";
 import { parseB6, move_sprite_in_y_to_sprite_in_x } from "./w4_b6_kudgel";
+import { KROOL_EXIT } from "./w4_b6_krool_ammo";
+
+/** `JSR ($0044,x)`: K. Rool's return code; CODE_B69E75 leaves his whole sprite code. */
+function runReturnCode(): boolean {
+  try {
+    jsrAddr(B6 | rd(reg.x, 0x44));
+  } catch (e) {
+    if (e !== KROOL_EXIT) throw e;
+    CODE_B68F33();
+    return false;
+  }
+  return true;
+}
 
 const B6 = 0xb60000;
 const DROPS_COUNT = L("DATA_B6906D");
@@ -253,7 +266,7 @@ export function CODE_B68F0F(): void {
   let x = cur();
   reg.x = x;
   reg.a = rd(x, 0x44);
-  jsrAddr(B6 | reg.a);
+  if (!runReturnCode()) return;
   x = cur();
   reg.x = x;
   reg.a = rd(x, 0x44);
@@ -291,7 +304,7 @@ export function CODE_B68F37(): void {
 /** $B68F44 — defeated in Krocodile Kore: only the return code runs. */
 export function CODE_B68F44(): void {
   reg.x = cur();
-  jsrAddr(B6 | rd(reg.x, 0x44));
+  if (!runReturnCode()) return;
   process_sprite_animation();
   CODE_B68F2B();
 }
