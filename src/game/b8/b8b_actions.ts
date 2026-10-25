@@ -9,7 +9,8 @@
  * (returned as carry).
  */
 import { r16, w16, rom16, and16 } from "../../core/mem";
-import { reg, callPtr } from "../../core/cpu";
+import { reg, implAt } from "../../core/cpu";
+import { runOriginal, KIND_JSR } from "../../core/hybrid";
 import { L, R, C, sprite as S, kong_control as K } from "../../core/sym";
 import { pl, mi, neg, spriteConst, cur, sw, sr, registerRts } from "./b8b_common";
 import { get_sprite_terrain_info_define_x } from "./b8b_common";
@@ -126,7 +127,13 @@ function dispatch(table: number) {
   reg.c = (v & 0x8000) !== 0; // carry out of the ASL
   reg.a = (v << 1) & 0xffff;
   reg.x = reg.a;
-  callPtr(0xb8, rom16(table + reg.x));
+  // Every action is reached through `JSR handle_*_actions` and returns with RTS. Some generated
+  // stubs guess JSL for actions whose RTS lies past a following label (e.g. swim_right_action),
+  // so an unported action is run here explicitly as a JSR-called routine.
+  const addr = 0xb80000 | rom16(table + reg.x);
+  const impl = implAt(addr);
+  if (impl) impl();
+  else runOriginal(addr, KIND_JSR, reg.db, 0, 0);
 }
 /** $B8BACF */
 export function handle_up_actions() {

@@ -92,7 +92,9 @@ export function CODE_B8B80A() {
   const y = reg.y;
   sw(y, S.x_position, reg.a + sr(x, S.x_position));
   sw(y, S.y_position, sr(x, S.y_position) + r16(R.held_sprite_y_offset));
-  sw(y, S.render_order, sr(x, S.render_order) + r16(0x0d80));
+  const order = sr(x, S.render_order) + r16(0x0d80);
+  sw(y, S.render_order, order);
+  reg.c = order > 0xffff;
   const prop = sr(y, S.oam_property);
   reg.a = ((sr(x, S.oam_property) ^ prop) & 0x4000) ^ prop;
   sw(y, S.oam_property, reg.a);
