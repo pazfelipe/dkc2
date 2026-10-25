@@ -610,7 +610,7 @@ export function CODE_B3AE3D(): void {
   reg.a = 0x746b;
   const x = reg.x;
   reg.y = rd(x, 0x4e);
-  if (reg.y === 0) return CODE_B3AE4B();
+  if (reg.y !== 0) return CODE_B3AE4B();
   reg.y = rd(x, sprite.state);
   if (reg.y === 0) return CODE_B3AE4B();
   reg.a = 0x4408;
