@@ -65,3 +65,11 @@ export const asr1 = (v: number) => ((v & 0xffff) >> 1) | (v & 0x8000);
 
 export const SPRITE_SIZE = 0x5e;
 export const lab = (name: string) => L(name);
+
+import { C } from "../../core/sym";
+/** `%lda_sound(channel, name)`: A = channel<<8 | sound id. */
+export function snd(channel: number, name: string): number {
+  const id = (C as Record<string, number>)["sound_" + name];
+  if (id === undefined) throw new Error(`unknown sound ${name}`);
+  return ((channel << 8) | id) & 0xffff;
+}

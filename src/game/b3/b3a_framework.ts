@@ -17,7 +17,7 @@ import {
   delete_sprite_handle_deallocation,
   play_queued_sound_effect,
 } from "../../gen/routines";
-import { registerRts, registerRtl, registerSprite, mi, mergeBits, jslAddr } from "./b3a_common";
+import { registerRts, registerRtl, registerSprite, mi, mergeBits, jslAddr, snd } from "./b3a_common";
 
 /** $B38000 — despawn the current sprite if it is too far offscreen, then leave the sprite. */
 export function sprite_return_handle_despawn() {
@@ -36,8 +36,6 @@ export function process_looping_sounds_global() {
   process_looping_sounds();
 }
 
-/** `%sound(channel, id)` */
-const snd = (channel: number, name: string) => ((channel << 8) | (C as Record<string, number>)["sound_" + name]) & 0xffff;
 
 /** $B380F0 */
 export function process_looping_sounds() {
