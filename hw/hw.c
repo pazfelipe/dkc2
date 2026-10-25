@@ -154,6 +154,8 @@ EXPORT int hw_load_state(uint8_t* data, int size) { return snes_loadState(snes, 
 
 /* ---- Reference mode: run the original game code on the emulated 65816 (test oracle) ---- */
 EXPORT void hw_emu_run_frame(void) { snes_runFrame(snes); }
+void snes_runToNextVblank(Snes* snes);
+EXPORT void hw_emu_run_vblank(void) { snes_runToNextVblank(snes); }
 EXPORT int hw_state_size(void) { return snes_saveState(snes, 0); }
 EXPORT uint32_t hw_frames(void) { return snes->frames; }
 

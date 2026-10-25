@@ -127,6 +127,16 @@ void snes_runFrame(Snes* snes) {
   snes_catchupApu(snes); // catch up the apu after running
 }
 
+// port addition: run exactly until the next start of vblank (snes_runFrame can skip one when the
+// vblank start line changes, e.g. overscan toggled during a forced-blank load)
+void snes_runToNextVblank(Snes* snes) {
+  uint32_t v = snes_vblank_count;
+  while(snes_vblank_count == v) {
+    cpu_runOpcode(snes->cpu);
+  }
+  snes_catchupApu(snes);
+}
+
 void snes_runCycles(Snes* snes, int cycles) {
   if(snes->hPos + cycles >= 536 && snes->hPos < 536) {
     // if we go past 536, add 40 cycles for dram refersh

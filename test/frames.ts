@@ -33,7 +33,8 @@ const IDLE = new Set([L("CODE_808636_CODE_808640") + 0x12, L("CODE_808636_CODE_8
 const refFrames: Uint8Array[] = [];
 for (let f = 0; f < frames; f++) {
   hw.setInput(0, input(f));
-  hw.emuRunFrame();
+  // one reference frame = up to the next start of vblank, the same unit the port's lag logic counts
+  (hw.ex as any).hw_emu_run_vblank();
   const pc = (hw.ex as any).hw_cpu_live_reg(4);
   ref.push(IDLE.has(pc) ? snap(hw) : null);
   if (png) refFrames.push(hw.frameRGBA().slice() as unknown as Uint8Array);
