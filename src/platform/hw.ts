@@ -17,6 +17,9 @@ export interface HwExports {
   hw_cgram(): number;
   hw_oam(): number;
   hw_high_oam(): number;
+  hw_brightness(): number;
+  hw_audio_drain(): number;
+  hw_audio_drain_buf(): number;
   hw_aram(): number;
   hw_vpos(): number;
   hw_hpos(): number;
@@ -114,6 +117,11 @@ export class Hardware {
   }
   setInput(player: number, buttons: number) {
     this.ex.hw_set_input(player, buttons);
+  }
+  /** Every sample produced since the last call (stereo, interleaved). */
+  drainAudio(): Int16Array {
+    const n = this.ex.hw_audio_drain();
+    return new Int16Array(this.mem, this.ex.hw_audio_drain_buf(), n * 2).slice();
   }
   frameRGBA(): Uint8ClampedArray {
     return new Uint8ClampedArray(this.mem, this.ex.hw_frame(), 256 * 224 * 4);

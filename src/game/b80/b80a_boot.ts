@@ -171,6 +171,7 @@ export function init_registers() {
   for (let x = 0x0a; x >= 0; x--) {
     for (let ch = 0; ch < 8; ch++) io8(DMA.settings + ch * 0x10 + x, 0);
   }
+  cpuTime(0x34 * 108 + 0x0b * 48 + 11 * 8 * 34 + 600); // the three clear loops + the rest
   // SEP #$30 zeroed the high bytes of X/Y; the DMA loop leaves X = $FFFF
   reg.x = 0xffff;
   reg.y &= 0xff;
