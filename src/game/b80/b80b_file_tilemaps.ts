@@ -20,8 +20,8 @@ const PERCENT_TILEMAP = L("DATA_ED7889");
 const TWO_DIGITS = L("DATA_B3DE2C"); // 0..99 as (tens, ones) byte pairs
 
 /** Master cycles of upload_fileselect_tilemap, measured on the original (per word / row / call). */
-const TILEMAP_WORD_CYCLES = 156;
-const TILEMAP_ROW_CYCLES = 120;
+const TILEMAP_WORD_CYCLES = 139; // 16x3 payload: 7530 master cycles
+const TILEMAP_ROW_CYCLES = 180;
 const TILEMAP_CALL_CYCLES = 300;
 
 /** Upload the payload at 24-bit `src` to VRAM word address `dest` (sets the DP temporaries). */

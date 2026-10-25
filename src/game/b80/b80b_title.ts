@@ -35,7 +35,9 @@ const RUN_NINTENDO_COPYRIGHT = L("run_nintendo_copyright") & 0xffff;
 const DEMO_GAME_MODE = L("CODE_8086F6") & 0xffff;
 const SPRITE_SIZE = 0x5e;
 /** master cycles per tile byte of upload_mode_7_tilemap's inner loop (measured on the original) */
-const MODE7_BYTE_CYCLES = 186;
+const MODE7_BYTE_CYCLES = 155;
+const MODE7_ROW_CYCLES = 210;
+const MODE7_CALL_CYCLES = 300;
 
 // ---------------------------------------------------------------------------------------------
 // Controller read of the menus
@@ -210,6 +212,7 @@ export function upload_mode_7_tilemap() {
   let y = 2;
   let dest = r16(0x32);
   let bytes = 0;
+  let rowCount = 0;
   do {
     io16(PPU.vram_address, dest);
     for (let x = cols || 0x10000; x > 0; x--) {
@@ -221,10 +224,11 @@ export function upload_mode_7_tilemap() {
     w16(0x32, dest);
     rows = (rows - 1) & 0xffff;
     w16(0x39, rows);
+    rowCount++;
   } while (rows !== 0);
   io8(PPU.vram_control, 0x80);
-  // per byte: SEP / LDA [dp],y / STA / REP / INY / DEX / BNE (~25 cycles), per row ~40
-  cpuTime(bytes * MODE7_BYTE_CYCLES);
+  // charge the time of the loop (measured: 10x14 map = 24984 master cycles)
+  cpuTime(bytes * MODE7_BYTE_CYCLES + rowCount * MODE7_ROW_CYCLES + MODE7_CALL_CYCLES);
   reg.x = 0;
   reg.y = y;
 }
