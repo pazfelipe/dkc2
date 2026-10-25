@@ -237,7 +237,8 @@ function CODE_B3D295(table: number) {
   spriteStateHandler(table); // JMP sprite_state_handler_B3 (table still on the stack)
 }
 
-function callPtrB3(ptr: number) {
+/** `JSR (table,x)` / `JMP (table,x)` to a 16-bit pointer in bank $B3. */
+export function callPtrB3(ptr: number) {
   const addr = 0xb30000 | ptr;
   const impl = implAt(addr);
   if (impl) return impl();
