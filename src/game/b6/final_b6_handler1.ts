@@ -12,7 +12,7 @@ import {
   set_alt_sprite_animation,
   process_sprite_animation,
 } from "../../gen/routines";
-import { cur, rd, wr, spriteTail, registerSprite } from "./b6ba_common";
+import { cur, rd, wr, spriteTail, registerSprite, registerRtl } from "./b6ba_common";
 
 const MAIN_TABLE = (L("bank_B6_sprite_main_handler_1") + 6) & 0xffff;
 
@@ -64,4 +64,16 @@ export function klubbas_club_sprite_code(): void {
   reg.db = db;
 }
 
+/** $B69493 — animation callback (seen in Swanky's screen): sprite field $1C = $C000. */
+export function CODE_B69493(): void {
+  reg.a = 0xc000;
+  w16((reg.x + 0x1c) & 0xffff, reg.a);
+}
+
+/** $B69499 — animation callback: clear sprite field $1C. */
+export function CODE_B69499(): void {
+  w16((reg.x + 0x1c) & 0xffff, 0);
+}
+
 registerSprite({ bank_B6_sprite_main_handler_1, klubba_sprite_code, klubbas_club_sprite_code });
+registerRtl({ CODE_B69493, CODE_B69499 });
