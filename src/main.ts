@@ -5,7 +5,7 @@
 import { Hardware } from "./platform/hw";
 import { AudioOut } from "./platform/audio";
 import { attachKeyboard, readPad } from "./platform/input";
-import { loadStoredRom, storeRom, sha256, normalizeRom, EXPECTED_SHA256 } from "./platform/romstore";
+import { loadStoredRom, storeRom, sha256, normalizeRom, EXPECTED_SHA256, loadBlob, storeBlob } from "./platform/romstore";
 import { bindMachine } from "./core/mem";
 import { boot, frame } from "./game/machine";
 import { fallbackStats } from "./core/hybrid";
@@ -27,8 +27,43 @@ async function start(rom: Uint8Array) {
   hw.saveState();
   hw.refreshViews();
   bindMachine(hw, rom);
+  // battery-backed save RAM (the game saves at Kong Kollege)
+  const sram = await loadBlob("sram");
+  if (sram && sram.length === hw.sram().length) hw.sram().set(sram);
+  let lastSram = hw.sram().slice();
   boot();
   attachKeyboard(window);
+  const toast = (msg: string) => {
+    const t = $("toast");
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout((t as any)._h);
+    (t as any)._h = setTimeout(() => (t.hidden = true), 1500);
+  };
+  window.addEventListener("keydown", async (e) => {
+    if (e.code === "F2") {
+      e.preventDefault();
+      await storeBlob("quicksave", hw.saveState());
+      toast("State saved");
+    }
+    if (e.code === "F4") {
+      e.preventDefault();
+      const s = await loadBlob("quicksave");
+      if (s) {
+        hw.loadState(s);
+        toast("State loaded");
+      }
+    }
+  });
+  setInterval(() => {
+    const now = hw.sram();
+    for (let i = 0; i < now.length; i++)
+      if (now[i] !== lastSram[i]) {
+        lastSram = now.slice();
+        storeBlob("sram", lastSram);
+        break;
+      }
+  }, 2000);
 
   let acc = 0;
   let last = performance.now();

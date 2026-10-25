@@ -23,8 +23,14 @@ const input = parseInput(opt("--input", "")!);
 type Ent = { n: number; kinds: Record<string, number>; db: Record<string, number>; p: Record<string, number>; dp: Record<string, number> };
 const agg: Record<string, Ent> = existsSync(out) ? JSON.parse(readFileSync(out, "utf8")) : {};
 const frames = parseInt(framesStr);
+const invincible = rest.includes("--invincible");
 for (let f = 0; f < frames; f++) {
   hw.setInput(0, input(f));
+  if (invincible) {
+    // keep both Kongs invincible (kong_control.invincible_timer) so a dumb bot can cross the level
+    hw.wram[0x16b2 + 0x16] = 0xff; hw.wram[0x16b2 + 0x17] = 0x00;
+    hw.wram[0x16d8 + 0x16] = 0xff; hw.wram[0x16d8 + 0x17] = 0x00;
+  }
   ex.hw_trace_reset();
   ex.hw_emu_run_frame_traced();
   const n = ex.hw_trace_count();

@@ -373,3 +373,7 @@ EXPORT void hw_force_autojoy(int p1, int p2) {
 extern double snes_apu_speed;
 /* Test helper: make the sound CPU run `factor` times faster than real time. */
 EXPORT void hw_set_apu_speed(double factor) { snes_apu_speed = factor; }
+EXPORT void hw_cpu_set_live_reg(int which, int v) {
+  Cpu* c = snes->cpu;
+  switch (which) { case 0: c->a = v; break; case 1: c->x = v; break; case 2: c->y = v; break; case 5: c->db = v; break; }
+}

@@ -43,3 +43,25 @@ export async function sha256(data: Uint8Array): Promise<string> {
 export function normalizeRom(data: Uint8Array): Uint8Array {
   return data.length % 1024 === 512 ? data.slice(512) : data;
 }
+
+/** Battery save (SRAM) and quick save states, kept in the same IndexedDB. */
+export async function loadBlob(key: string): Promise<Uint8Array | null> {
+  try {
+    const db = await open();
+    return await new Promise((res) => {
+      const q = db.transaction(STORE).objectStore(STORE).get(key);
+      q.onsuccess = () => res(q.result ? new Uint8Array(q.result) : null);
+      q.onerror = () => res(null);
+    });
+  } catch {
+    return null;
+  }
+}
+export async function storeBlob(key: string, data: Uint8Array) {
+  try {
+    const db = await open();
+    db.transaction(STORE, "readwrite").objectStore(STORE).put(data.slice().buffer, key);
+  } catch {
+    /* ignore */
+  }
+}
