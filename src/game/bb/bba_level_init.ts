@@ -8,6 +8,7 @@
  * starts the music.
  */
 import { r16, w8, w16, rom8, rom16, io8, io16 } from "../../core/mem";
+import { setRetMode, RET_RTS } from "../../core/hybrid";
 import { reg, register, callPtr } from "../../core/cpu";
 import { L, R, C, level, rel_level, DMA, PPU, CPU } from "../../core/sym";
 import {
@@ -768,6 +769,10 @@ export function CODE_BB9A88() {
   reg.y = 0x007f;
   CODE_BBB104();
 }
+
+// These end with RTS (reached by JSR or by falling through from a JSR'd routine), but their
+// generated stubs assume RTL: give the hybrid layer the right return kind for traps.
+for (const name of ["CODE_BB939B", "CODE_BB93C9", "CODE_BB940C", "CODE_BB9424", "CODE_BB943B", "CODE_BB943E", "CODE_BB9441", "CODE_BB9493", "CODE_BB9497", "graphics_init_01", "graphics_init_06", "graphics_init_00", "CODE_BB9798", "graphics_init_13", "CODE_BB98E2", "CODE_BB98E8", "CODE_BB99A5", "CODE_BB99ED"]) setRetMode(L(name), RET_RTS);
 
 register({
   CODE_BB9210,

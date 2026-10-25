@@ -7,6 +7,7 @@
  * controller sprite (wind, water bubbles).
  */
 import { w16, io8, io16 } from "../../core/mem";
+import { setRetMode, RET_RTS } from "../../core/hybrid";
 import { reg, register } from "../../core/cpu";
 import { L, R, C, level, HDMA } from "../../core/sym";
 import { r16 } from "../../core/mem";
@@ -437,6 +438,10 @@ export function dma_init_06() {
   spawn_no_gfx_special_sprite_address(); // water bubbles
   enable(0xdc01);
 }
+
+// These end with RTS (reached by JSR or by falling through from a JSR'd routine), but their
+// generated stubs assume RTL: give the hybrid layer the right return kind for traps.
+for (const name of ["dma_init_03", "dma_init_14", "dma_init_09", "dma_init_18", "dma_init_0E", "CODE_BB9EE1", "dma_init_0F", "dma_init_01", "dma_init_16", "CODE_BBA256", "dma_init_06"]) setRetMode(L(name), RET_RTS);
 
 register({
   dma_init_08,

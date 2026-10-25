@@ -12,6 +12,7 @@
  * invincibility tint them (CODE_BB8B66 picks the colors).
  */
 import { r16, w16, rom16, io8, io16 } from "../../core/mem";
+import { setRetMode, RET_RTS } from "../../core/hybrid";
 import { reg, register } from "../../core/cpu";
 import { L, R, C, sprite, sprite_palette_dma, level, DMA, PPU, CPU } from "../../core/sym";
 import { throw_exception } from "../../gen/routines";
@@ -440,6 +441,10 @@ export function CODE_BB8C6E() {
   reg.a = mergeBits(r16(spr + sprite.oam_property), reg.a, 0x0e00);
   w16(spr + sprite.oam_property, reg.a);
 }
+
+// These end with RTS (reached by JSR or by falling through from a JSR'd routine), but their
+// generated stubs assume RTL: give the hybrid layer the right return kind for traps.
+for (const name of ["CODE_BB888F", "CODE_BB88E3", "CODE_BB8979", "CODE_BB89E4", "CODE_BB8C68"]) setRetMode(L(name), RET_RTS);
 
 register({
   dma_sprite_palette_from_index,
