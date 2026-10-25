@@ -220,6 +220,7 @@ EXPORT int hw_cpu_call(uint32_t target, int kind, int a, int x, int y, int db, i
   c->nmiWanted = false; c->irqWanted = false; c->intWanted = false; c->waiting = false; c->stopped = false;
   c->e = false;
   c->mf = flags & 1; c->xf = (flags >> 1) & 1; c->c = (flags >> 2) & 1; c->i = true; c->d = false;
+  c->z = (flags >> 3) & 1; c->n = (flags >> 4) & 1; c->v = (flags >> 5) & 1;
   c->a = a; c->x = c->xf ? (x & 0xff) : x; c->y = c->xf ? (y & 0xff) : y;
   c->db = db; c->dp = dp; c->sp = sp;
   uint8_t bank = target >> 16;

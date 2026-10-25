@@ -91,7 +91,7 @@ export function runOriginal(addr: number, kind: number, db: number, dp: number, 
   const e = ex();
   e.hw_cpu_clear_stops();
   for (const s of stops) e.hw_cpu_add_stop(s);
-  const flags = (mx & 1) | (mx & 2) | (reg.c ? 4 : 0);
+  const flags = (mx & 1) | (mx & 2) | (reg.c ? 4 : 0) | (reg.z ? 8 : 0) | (reg.n ? 16 : 0) | (reg.v ? 32 : 0);
   // the data bank is inherited from whatever ran before, like on the real CPU
   void db;
   let code = e.hw_cpu_call(addr, kind, reg.a & 0xffff, reg.x & 0xffff, reg.y & 0xffff, reg.db & 0xff, dp, flags, STACK_TOP - 0x40, 30_000_000);
