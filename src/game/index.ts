@@ -15,6 +15,12 @@ import "./b3/b3b_kruncha";
 import "./b3/b3b_level_goal";
 import "./b3/b3b_lockjaw";
 import "./b3/b3b_misc";
+import "./b3/b3c_common";
+import "./b3/b3c_kutlass_krook";
+import "./b3/b3c_necky_kannon";
+import "./b3/b3c_pickups";
+import "./b3/b3c_platforms";
+import "./b3/b3c_puftup";
 import "./b3/sprite_handler";
 import "./b5/b5a_level_stream";
 // import "./b5/b5a_sound"; // disabled: boot hangs at real APU speed (under investigation)
