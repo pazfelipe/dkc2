@@ -7,6 +7,7 @@
  */
 import { r8, r16, w16, rom16 } from "../../core/mem";
 import { read16x } from "./bba_util";
+import { cpuTime } from "../b80/b80a_util";
 import { reg, register } from "../../core/cpu";
 import { L, R, level, C } from "../../core/sym";
 import { CODE_BBAF0F, CODE_BBAF0C } from "../../gen/routines";
@@ -151,6 +152,8 @@ export function get_complete_bit_for_level() {
 
 /** $BB819F — recompute completion_percentage from the whole save file. */
 export function calculate_completion_percentage() {
+  // the original walks every level's config twice: ~1.78M master cycles (about 5 frames, measured)
+  cpuTime(1780140);
   w16(R.completion_percentage, 0);
   w16(0x72, 1);
   // one percent per level whose bonus Kremkoins are all collected

@@ -19,6 +19,7 @@ import { r8, r16, w16, bus8, busW8, io8, io16 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { setRetMode, RET_RTL } from "../../core/hybrid";
 import { L, R, CPU, DMA, PPU } from "../../core/sym";
+import { cpuTime } from "../b80/b80a_util";
 
 const SPRITE_DMA = R.sprite_dma;
 const TEMP = R.column_row_temp_buffer; // $195A
@@ -153,6 +154,8 @@ export function CODE_B5A950() {
   decodeChunks(COLUMN, { n: 0x34, h: 0x36, v: 0x34, hv: 0x36 }, { h: false, v: true }, plus(2));
   reg.db = 0x00; // PLB pulls the high byte of the pushed bank word
   CODE_B5AA5F();
+  // decoding a column is CPU-heavy on the console; level loads draw 64 in a row (measured)
+  cpuTime(14400);
 }
 
 /** $B5AA5F — rotate the decoded rigging column into layer_column_dma_buffer. */
@@ -249,6 +252,7 @@ export function CODE_B5AC9C() {
   decodeChunks(COLUMN, { n: 0x34, h: 0x36, v: 0x34, hv: 0x36 }, { h: false, v: true }, plus(2));
   leaveLevelBank();
   CODE_B5ADA9();
+  cpuTime(15800); // measured cost of decoding one level column on the console
 }
 
 /** $B5ADA9 — rotate the decoded column into level_column_dma_buffer ($17C8 = buffer half). */
@@ -346,6 +350,7 @@ export function CODE_B5B0FC() {
   decodeChunks(COLUMN, { n: 0x34, h: 0x36, v: 0x34, hv: 0x36 }, { h: false, v: true }, plus(0x20));
   leaveLevelBank();
   CODE_B5ADA9();
+  cpuTime(15800); // measured cost of decoding one level column on the console
 }
 
 /** $B5B20D — vertical levels: build the entering row. */
@@ -390,6 +395,7 @@ export function CODE_B5B322() {
   decodeChunks(COLUMN, { n: 0x34, h: 0x36, v: 0x34, hv: 0x36 }, { h: false, v: true }, plus(0xa0));
   leaveLevelBank();
   CODE_B5ADA9();
+  cpuTime(15800); // measured cost of decoding one level column on the console
 }
 
 const entries = {
