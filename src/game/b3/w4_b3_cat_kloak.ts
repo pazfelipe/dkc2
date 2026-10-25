@@ -589,7 +589,9 @@ export function CODE_B3D1D9() {
   sw(held, sprite.y_position, dy + sr(x, sprite.y_position));
   let ox = dx;
   if (sr(x, sprite.oam_property) & 0x4000) ox = neg(ox);
-  reg.a = (ox + sr(x, sprite.x_position)) & 0xffff;
+  const sum = ox + sr(x, sprite.x_position);
+  reg.c = sum > 0xffff;
+  reg.a = sum & 0xffff;
   sw(held, sprite.x_position, reg.a);
 }
 
