@@ -81,6 +81,12 @@ EXPORT void hw_guard_set(uint8_t* map) { cart_guard_map = map; cart_guard_count 
 EXPORT uint32_t hw_guard_count(void) { return cart_guard_count; }
 EXPORT uint32_t* hw_guard_log(void) { return cart_guard_log; }
 EXPORT void hw_guard_reset(void) { cart_guard_count = 0; }
+extern bool cart_guard_data_only;
+extern uint8_t cart_guard_hitmap[];
+/* Oracle: count only data reads (not the CPU's instruction fetches), to list where the ORIGINAL
+ * game reads its own code as data. */
+EXPORT void hw_guard_data_only(int on) { cart_guard_data_only = on; }
+EXPORT uint8_t* hw_guard_hitmap(void) { return cart_guard_hitmap; }
 
 EXPORT uint8_t hw_read8(uint32_t adr) { return snes_read(snes, adr); }
 

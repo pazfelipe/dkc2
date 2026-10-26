@@ -43,8 +43,15 @@ function absIndexed16(bank: number, addr: number): number {
   const full = ((bank & 0xff) << 16) + addr;
   return bus8(full & 0xffffff) | (bus8((full + 1) & 0xffffff) << 8);
 }
+/**
+ * Special hitbox $1E is past the end of special_hitboxes ($0F entries): the original reads the
+ * 8 bytes at $BCFAF0, which are instruction bytes of get_active_kong_clipping ($BCFAEA). They
+ * act as a hitbox (seen in the Haunted Hall ride). The port has no code bytes, so these four
+ * words (x offset, y offset, width, height as for every hitbox) are kept here as constants.
+ */
+const HITBOX_1E: Record<number, number> = { 0xfaf0: 0x0b2b, 0xfaf2: 0xa3a0, 0xfaf4: 0x2c09, 0xfaf6: 0x09a7 };
 /** `LDA $xxxx,y` with DB = $BC (hitbox data; $0000-$1FFF would be WRAM). */
-const hitbox16 = (addr: number) => absIndexed16(BANK, addr);
+const hitbox16 = (addr: number) => HITBOX_1E[addr & 0xffff] ?? absIndexed16(BANK, addr);
 /** `LDA.w $xxxx,y` through the caller's data bank. */
 const dbRead16 = (addr: number) => absIndexed16(reg.db, addr);
 

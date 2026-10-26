@@ -25,6 +25,7 @@ static const int transferLength[8] = {
 };
 
 static void dma_transferByte(Dma* dma, uint16_t aAdr, uint8_t aBank, uint8_t bAdr, bool fromB);
+extern bool cart_guard_dummy;
 static void dma_waitCycle(Dma* dma);
 static void dma_doDma(Dma* dma, int cpuCycles);
 static void dma_initHdma(Dma* dma, bool doSync, int cpuCycles);
@@ -258,10 +259,12 @@ static void dma_initHdma(Dma* dma, bool doSync, int cpuCycles) {
       dma->channel[i].repCount = snes_read(dma->snes, (dma->channel[i].aBank << 16) | dma->channel[i].tableAdr++);
       if(dma->channel[i].repCount == 0) dma->channel[i].terminated = true;
       if(dma->channel[i].indirect) {
+        cart_guard_dummy = dma->channel[i].terminated; // see dma_doHdma
         snes_runCycles(dma->snes, 8);
         dma->channel[i].size = snes_read(dma->snes, (dma->channel[i].aBank << 16) | dma->channel[i].tableAdr++);
         snes_runCycles(dma->snes, 8);
         dma->channel[i].size |= snes_read(dma->snes, (dma->channel[i].aBank << 16) | dma->channel[i].tableAdr++) << 8;
+        cart_guard_dummy = false;
       }
       dma->channel[i].doTransfer = true;
     }
@@ -318,6 +321,9 @@ static void dma_doHdma(Dma* dma, bool doSync, int cpuCycles) {
         dma->channel[i].repCount = newRepCount;
         dma->channel[i].tableAdr++;
         if(dma->channel[i].indirect) {
+          // after a $00 line count the channel is finished but the hardware still fetches an
+          // indirect address after it; it is never used, so the ROM-free guard ignores it
+          cart_guard_dummy = dma->channel[i].repCount == 0;
           if(dma->channel[i].repCount == 0 && i == lastActive) {
             // if this is the last active channel, only fetch high, and use 0 for low
             dma->channel[i].size = 0;
@@ -327,6 +333,7 @@ static void dma_doHdma(Dma* dma, bool doSync, int cpuCycles) {
           }
           snes_runCycles(dma->snes, 8);
           dma->channel[i].size |= snes_read(dma->snes, (dma->channel[i].aBank << 16) | dma->channel[i].tableAdr++) << 8;
+          cart_guard_dummy = false;
         }
         if(dma->channel[i].repCount == 0) dma->channel[i].terminated = true;
         dma->channel[i].doTransfer = true;

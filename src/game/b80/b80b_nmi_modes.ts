@@ -14,7 +14,7 @@
  * Absolute (`LDA table,x`) reads of bank-$80 tables go through the current data bank, like the
  * original (the NMI does not set DB).
  */
-import { r8, r16, w8, w16, io8, io16, ioR8, bus8, bus16 } from "../../core/mem";
+import { r8, r16, w8, w16, io8, io16, ioR8, bus8, bus16, rom8 } from "../../core/mem";
 import { reg, register } from "../../core/cpu";
 import { sbc16, flags } from "../../core/ops";
 import { L, R, C, CPU, PPU, DMA, HDMA, level, sprite } from "../../core/sym";
@@ -614,6 +614,17 @@ export function mine_nmi_sub_mode() {
 }
 
 /**
+ * A word of DATA_80BCC8 (64 bytes). For the last y entry the original reads one byte past the
+ * table: the first byte of update_mine_sparkle_effect's code, `LDA abs` = $AD. The port has no
+ * code bytes, so that one byte is this constant.
+ */
+const LDA_ABS_OPCODE = 0xad;
+function sparkleWord(i: number): number {
+  if (i === 0x3f) return rom8(MINE_SPARKLE_POSITIONS + 0x3f) | (LDA_ABS_OPCODE << 8);
+  return bus16(MINE_SPARKLE_POSITIONS + i);
+}
+
+/**
  * $80BD08 — every 32 frames move the sparkle layer (layer 3) to a random position from
  * DATA_80BCC8, then upload the sparkle colours (palette buffer $7E8014/$7E8032).
  */
@@ -624,7 +635,7 @@ export function update_mine_sparkle_effect() {
     // the SBCs run with the carry left by the ASL (clear) and by the first SBC
     const sx = sbc16(0x00dc, bus16(MINE_SPARKLE_POSITIONS + x), false);
     w16(R.layer_screen_scroll_x_position, sx);
-    const sy = sbc16(0x00f0, bus16(MINE_SPARKLE_POSITIONS + x + 1), flags.c);
+    const sy = sbc16(0x00f0, sparkleWord(x + 1), flags.c);
     w16(RAM_17C4, sy);
     reg.x = x;
   }

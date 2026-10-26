@@ -238,8 +238,12 @@ function coinIdleBonusOrBoss(): void {
 /** .in_hud_bonus_or_boss — like .in_hud, and tells the bonus/boss it may end once done. */
 function coinInHudBonusOrBoss(): void {
   // Original bug: X still holds the state-table entry address here, so `LDA $5C,x` reads the
-  // byte pair at $00:(entry+$5C) (ROM), not the sprite's timer. Reproduced as is.
-  if (bus16((reg.x + S.unknown_5C) & 0xffff) & 0x8000) w16(R.game_state_flags_2, r16(R.game_state_flags_2) | 0x0002);
+  // byte pair at $00:(entry+$5C), not the sprite's timer. For this state that is $80B8BB, an
+  // operand of an instruction ($4362, bit 15 clear): the flag is never set. The port has no code
+  // bytes, so it uses that genuine value; any other address would be data and is read.
+  const at = (reg.x + S.unknown_5C) & 0xffff;
+  const word = at === 0xb8bb ? 0x4362 : bus16(at);
+  if (word & 0x8000) w16(R.game_state_flags_2, r16(R.game_state_flags_2) | 0x0002);
   coinInHud();
 }
 

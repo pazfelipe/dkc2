@@ -27,6 +27,8 @@ static uint16_t cpu_readWord(Cpu* cpu, uint32_t adrl, uint32_t adrh, bool intChe
 static void cpu_writeWord(Cpu* cpu, uint32_t adrl, uint32_t adrh, uint16_t value, bool reversed, bool intCheck);
 static void cpu_doInterrupt(Cpu* cpu);
 static void cpu_doOpcode(Cpu* cpu, uint8_t opcode);
+extern bool cpu_in_fetch;
+extern uint32_t cpu_insn_adr;
 
 // addressing modes and opcode functions not declared, only used after defintions
 
@@ -84,7 +86,7 @@ void cpu_runOpcode(Cpu* cpu) {
   if(cpu->resetWanted) {
     cpu->resetWanted = false;
     // reset: brk/interrupt without writes
-    cpu_read(cpu, (cpu->k << 16) | cpu->pc);
+    cpu_in_fetch = true; cpu_read(cpu, (cpu->k << 16) | cpu->pc); cpu_in_fetch = false;
     cpu_idle(cpu);
     cpu_read(cpu, 0x100 | (cpu->sp-- & 0xff));
     cpu_read(cpu, 0x100 | (cpu->sp-- & 0xff));
@@ -116,9 +118,10 @@ void cpu_runOpcode(Cpu* cpu) {
   }
   // not stopped or waiting, execute a opcode or go to interrupt
   if(cpu->intWanted) {
-    cpu_read(cpu, (cpu->k << 16) | cpu->pc);
+    cpu_in_fetch = true; cpu_read(cpu, (cpu->k << 16) | cpu->pc); cpu_in_fetch = false;
     cpu_doInterrupt(cpu);
   } else {
+    cpu_insn_adr = (cpu->k << 16) | cpu->pc;
     uint8_t opcode = cpu_readOpcode(cpu);
     cpu_doOpcode(cpu, opcode);
   }
@@ -152,8 +155,13 @@ static void cpu_checkInt(Cpu* cpu) {
   cpu->intWanted = cpu->nmiWanted || (cpu->irqWanted && !cpu->i);
 }
 
+bool cpu_in_fetch = false; /* for the ROM-free guard: true while fetching instruction bytes */
+uint32_t cpu_insn_adr = 0; /* address of the instruction being executed (its operand bytes are fetches too) */
 static uint8_t cpu_readOpcode(Cpu* cpu) {
-  return cpu_read(cpu, (cpu->k << 16) | cpu->pc++);
+  cpu_in_fetch = true;
+  uint8_t v = cpu_read(cpu, (cpu->k << 16) | cpu->pc++);
+  cpu_in_fetch = false;
+  return v;
 }
 
 static uint16_t cpu_readOpcodeWord(Cpu* cpu, bool intCheck) {
@@ -281,7 +289,7 @@ static void cpu_adrImp(Cpu* cpu) {
   if(cpu->intWanted) {
     // if interrupt detected in 2-cycle implied/accumulator opcode,
     // idle cycle turns into read from pc
-    cpu_read(cpu, (cpu->k << 16) | cpu->pc);
+    cpu_in_fetch = true; cpu_read(cpu, (cpu->k << 16) | cpu->pc); cpu_in_fetch = false;
   } else {
     cpu_idle(cpu);
   }

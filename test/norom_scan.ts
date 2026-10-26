@@ -15,6 +15,7 @@ import { frame } from "../src/game/machine.ts";
 import { setFallbackEnabled } from "../src/core/hybrid.ts";
 import { guardHits } from "../src/core/mem.ts";
 import { labelAt } from "../src/core/sym.ts";
+import { reg } from "../src/core/cpu.ts";
 
 const [re = ".", n = "300", part = "0/1"] = process.argv.slice(2);
 const [pi, pn] = part.split("/").map(Number);
@@ -31,6 +32,7 @@ const stacks = new Map<number, string>();
 let total = 0;
 for (const st of states) {
   hw.loadState(new Uint8Array(readFileSync(`${STATES_DIR}/${st}.state`)));
+  reg.db = (hw.ex as any).hw_cpu_live_reg(5); // the CPU's data bank in the snapshot (as test/frames.ts)
   guardHits.clear();
   hw.ex.hw_guard_reset();
   let err = "";

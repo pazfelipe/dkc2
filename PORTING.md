@@ -224,4 +224,15 @@ fallback off) and prints the guard's counts. Cases found and fixed when the guar
 - immediates of instructions read as data: the SPC700 ARAM addresses/sizes in `b5a_sound.ts`, the
   decompressor's command jump table (`JMP` stubs at `$BB8000`, now resolved from their labels),
   and the title's VRAM clear, whose fixed DMA source was the `$00` operand byte of `LDA #$0800`
-  (`$80B116`; now the data word `vram_zero_fill`).
+  (`$80B116`; now the data word `vram_zero_fill`);
+- original reads past the end of a table into the following code, kept as documented constants:
+  special hitbox `$1E` (8 bytes at `$BCFAF0`, `bc_clipping.ts`), the last mine sparkle position
+  (one byte at `$80BD08`, `b80b_nmi_modes.ts`), the coin's `LDA $5C,x` with a stale X (word at
+  `$80B8BB`, `be1_coins.ts`);
+- hardware: after a `$00` line count an indirect HDMA channel still fetches an (unused) indirect
+  address from the bytes after its table (`$BBA416` after `DATA_BBA40F`); the guard ignores
+  those fetches (`cart_guard_dummy` in `hw/lakesnes/dma.c`), their value is never used.
+
+`test/ref_code_reads.ts` lists the other side: every place where the ORIGINAL reads a code byte as
+data (CPU data reads and DMA, not instruction fetches) over the test states, so each one can be
+checked against the port.
