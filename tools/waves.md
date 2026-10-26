@@ -57,6 +57,12 @@ frame regressions listed in the final report are identical to the original. Not 
 reached in worlds 1-2): boss_command_code_01 (unused), _03, _17, _1D, _1E, _1F (other bosses),
 world 3+ / credits content.
 
+## STATUS 2026-10-25 21:30: code migration of the WHOLE game complete
+Wave 4 (w4_80, w4_b3, w4_b6, w4_be, w4_b4) merged. Fallback scan over 445 states: no original
+routine runs (except two known-bad states where the original crashes too). 39 errors are state
+artifacts (37 bonus rooms injected from the map hang in the SPC wait on the original too, the
+Haunted Hall exit STP and w4_b6_kr_hp2 jump into garbage on the original too). Next: ROM independence.
+
 ## BACKLOG (user, 2026-10-25): run 100% without the ROM — after the code migration is complete
 Goal: the game runs with no ROM at all, so every piece (logic AND data) is readable/editable in
 the repo. Learning purpose; the repo stays PRIVATE because extracted assets are Nintendo/Rare's.
