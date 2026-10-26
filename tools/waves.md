@@ -75,3 +75,9 @@ Steps (to plan in detail when we get there):
    binary as an extracted asset (simplest), or reimplement the sequencer in TypeScript (study value).
 4. Optionally replace the PPU emulation with a TS/WebGL renderer fed by the extracted data.
 5. Remove the ROM loader; the oracle/test harness keeps using the ROM for verification only.
+
+## STATUS 2026-10-26: ROM independence (branch pkg/norom)
+The game runs in the browser without the ROM: data extracted once into assets/ (tools/extract_assets.ts,
+classification in tools/rom_layout.json), packed into public/dkc2-data.pak; the cartridge image has
+zero where the original code was. Guard scans (test/norom_scan.ts, test/ref_code_reads.ts) and
+frames.ts --norom regressions: see PORTING.md "ROM-free check".

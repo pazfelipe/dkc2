@@ -214,7 +214,9 @@ read of a code byte, by the port (`rom8/rom16/rom24/bus*` in `src/core/mem.ts`) 
     DKC2_STATES=... npx tsx test/frames.ts --from pirate_walk --frames 1500 --input "..." --norom
 
 `frames.ts --norom` runs the reference on the real ROM and the port on the data-only image (original
-fallback off) and prints the guard's counts. Cases found and fixed when the guard was added:
+fallback off) and prints the guard's counts. In both modes `frames.ts` masks one WRAM word, the
+camera's anti-piracy accumulator `$0AB2` while its checksum window runs (see below), and prints
+for how many frames it did. Cases found and fixed when the guard was added:
 - anti-piracy checks that add up or compare the original's own code (Kleever `$B6DC6E`, Kudgel
   stun, water level changer, exit wall `$B3DF5F`, sprite-loader radius check `$BBBA2E`): the port
   uses the genuine cartridge's outcome (documented constant) instead of reading code;
@@ -229,6 +231,12 @@ fallback off) and prints the guard's counts. Cases found and fixed when the guar
   special hitbox `$1E` (8 bytes at `$BCFAF0`, `bc_clipping.ts`), the last mine sparkle position
   (one byte at `$80BD08`, `b80b_nmi_modes.ts`), the coin's `LDA $5C,x` with a stale X (word at
   `$80B8BB`, `be1_coins.ts`);
+- the disassembly decodes two data bytes as code: `$B38A56` is the 9th entry of rambi/squitter's
+  state table (`dw $8AEE`, the bonus-level handler, shown as `INC $5A8A`); `tools/rom_layout.py`
+  overrides it to data and the port has the state (`b3a_animals.ts`);
+- reads whose value the original throws away need nothing: 16-bit reads of a byte table's last
+  entry whose high byte is masked off (`DATA_B5D9DE`, `DATA_BED024`), the red zinger's
+  `LDA $xx,x` with a stale X (`$B3A46F`, result overwritten);
 - hardware: after a `$00` line count an indirect HDMA channel still fetches an (unused) indirect
   address from the bytes after its table (`$BBA416` after `DATA_BBA40F`); the guard ignores
   those fetches (`cart_guard_dummy` in `hw/lakesnes/dma.c`), their value is never used.

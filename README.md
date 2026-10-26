@@ -30,7 +30,12 @@ does it by hand. No ROM is loaded by the page.
 | `header/`, `misc/` | the cartridge header and vectors, a few bytes between banks |
 | `manifest.json` | for every block: cartridge offset, length, file, offset in the file; and the code ranges that were left out |
 
-Edit a file, reload the dev server (it re-packs), and the game uses it. At boot the blocks are
+`assets/` (and the generated `public/dkc2-data.pak`) are git-ignored for now: they are
+Nintendo/Rare's data, 4.0 MB in 12,322 files. To keep them in this private repo, remove the two
+lines from `.gitignore`.
+
+Edit a file, restart the dev server (it re-packs at start) or run `npm run assets`, reload, and
+the game uses it. At boot the blocks are
 put back at their cartridge addresses into a 4 MiB data image whose code bytes are zero, so the
 ported code, the DMA and the decompressor read the data where the original did
 (`src/platform/assetformats.ts`).
