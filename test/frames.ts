@@ -6,9 +6,11 @@
  *
  * --norom: the port runs on its own machine whose cartridge is the data-only image built from
  * assets/ (no code bytes), with the original-code fallback off and the ROM-free guard on; the
- * reference still runs the real ROM. Reports every read of a code byte. One known difference is
- * masked: the anti-piracy accumulator word $0AB2 while its checksum window runs (see
- * CODE_B5ED70 in src/game/b5/b5c_camera.ts: the port has no code to add up).
+ * reference still runs the real ROM. Reports every read of a code byte.
+ *
+ * One known difference is masked in both modes: the anti-piracy accumulator word $0AB2 while its
+ * checksum window runs (see CODE_B5ED70 in src/game/b5/b5c_camera.ts: the port, which runs
+ * without the original code, does not add it up; it stores the genuine total when the window ends).
  */
 import { readFileSync, mkdirSync } from "node:fs";
 import { makeMachine, makeNoRomMachine, bindNoRom, snap, diffSnaps, fmtDiff, STATES_DIR, L } from "./lib/oracle.ts";
@@ -67,8 +69,8 @@ for (let f = 0; f < frames; f++) {
   const rf = ref[f];
   if (!rf) continue; // original was mid-logic (lag frame): not comparable
   const ps = snap(phw);
-  if (portM && !(ps.wram[0x0a91] & 0x80) && (ps.wram[0x0ab2] !== rf.wram[0x0ab2] || ps.wram[0x0ab3] !== rf.wram[0x0ab3])) {
-    // anti-piracy checksum window: the port does not add up the original code
+  if (!(ps.wram[0x0a91] & 0x80) && (ps.wram[0x0ab2] !== rf.wram[0x0ab2] || ps.wram[0x0ab3] !== rf.wram[0x0ab3])) {
+    // anti-piracy checksum window: the port does not add up the original code (counted, reported)
     masked++;
     ps.wram[0x0ab2] = rf.wram[0x0ab2];
     ps.wram[0x0ab3] = rf.wram[0x0ab3];
@@ -88,8 +90,9 @@ for (let f = 0; f < frames; f++) {
 console.log(firstBad < 0 ? `all ${frames} frames identical` : `diverged at frame ${firstBad}`);
 const top = [...fallbackStats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
 console.log("fallback calls:", top.map(([a, n]) => `${labelAt(a)}:${n}`).join(" "));
+console.log(`frames with the anti-piracy accumulator $0AB2 masked: ${masked}`);
 if (portM) {
   const g = phw.guardReads();
   const ts = [...guardHits.keys()].map((o) => "$" + o.toString(16));
-  console.log(`no-ROM: code-byte reads by the port ${guardHits.size}${ts.length ? " " + ts.slice(0, 10).join(" ") : ""}, by the hardware ${g.count}; frames with the anti-piracy accumulator masked: ${masked}`);
+  console.log(`no-ROM: code-byte reads by the port ${guardHits.size}${ts.length ? " " + ts.slice(0, 10).join(" ") : ""}, by the hardware ${g.count}`);
 }
