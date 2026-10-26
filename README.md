@@ -2,16 +2,49 @@
 
 Donkey Kong Country 2 game logic ported to TypeScript, routine by routine, from the community
 disassembly. SNES hardware (PPU, DMA, sound chip) runs as WebAssembly (LakeSnes, MIT).
-Graphics, music and data are read from your own ROM at runtime. No ROM data is included.
+The game runs **without the ROM**: its data (graphics, levels, music, tables, text) is extracted
+once from your own ROM into `assets/`, readable files in the disassembly's folder layout, and
+none of the original 65816 code is kept (the code is the TypeScript port).
 
 ## Run
-Requirements: Node 20+.
+Requirements: Node 20+, and once, your ROM: Donkey Kong Country 2 (USA) Rev 1, .sfc, headerless
+or with a 512-byte header.
 
     npm install
+    npm run extract -- "path/to/Donkey Kong Country 2 (USA) (Rev 1).sfc"   # writes assets/
     npm run dev
 
-Open the URL Vite prints (http://localhost:5173), choose your ROM:
-Donkey Kong Country 2 (USA) Rev 1, .sfc, headerless or with a 512-byte header.
+Open the URL Vite prints (http://localhost:5173). `npm run dev` / `npx vite build` pack
+`assets/` into `public/dkc2-data.pak` (one gzip file the page fetches at boot); `npm run assets`
+does it by hand. No ROM is loaded by the page.
+
+## Game data (assets/)
+`npm run extract` checks the ROM's SHA-256 and writes about 12,300 files (4.0 MB of data):
+
+| Folder | What |
+|---|---|
+| `gfx/ levels/ backgrounds/ world_maps/ screens/ sound/samples/ sound/sound_effects/` | the files the disassembly includes from its `data/` tree, same paths and names: compressed tile graphics, tilemaps, collision maps, level objects, BRR samples... Palettes are JSON (`[red, green, blue]`, 0-31). |
+| `sound/music/<song>_song_data.bin` | the songs (sequencer data for the SPC700) |
+| `bank_XX/<label>.bin` / `.json` | tables written inline in `bank_XX.asm`, one file per label (pointer tables, sprite constants, animation scripts, ...); text as JSON |
+| `bank_EE-F2/spc_base_engine.bin`, `spc_sound_engine.bin` | Rare's sound driver, uploaded to the SPC700 (it runs on the sound CPU) |
+| `header/`, `misc/` | the cartridge header and vectors, a few bytes between banks |
+| `manifest.json` | for every block: cartridge offset, length, file, offset in the file; and the code ranges that were left out |
+
+`assets/` (and the generated `public/dkc2-data.pak`) are git-ignored for now: they are
+Nintendo/Rare's data, 4.0 MB in 12,322 files. To keep them in this private repo, remove the two
+lines from `.gitignore`.
+
+Edit a file, restart the dev server (it re-packs at start) or run `npm run assets`, reload, and
+the game uses it. At boot the blocks are
+put back at their cartridge addresses into a 4 MiB data image whose code bytes are zero, so the
+ported code, the DMA and the decompressor read the data where the original did
+(`src/platform/assetformats.ts`).
+
+How bytes are classified (`tools/rom_layout.py` -> `tools/rom_layout.json`, committed): asar's
+address-to-line map of the assembled disassembly says which source line emitted every byte; lines
+that are 65816 instructions are code (4.5% of the ROM), everything else is data. The tests prove the
+port never reads a code byte (see "ROM-free check" in PORTING.md). To re-extract after changing
+the layout: `npm run layout` (needs the disassembly and its symbol file), then `npm run extract`.
 
 Controls: arrows move, Z jump, A run/roll/pick up, X team-up, Enter start, Shift swap Kongs,
 F2/F4 save/load state, ` (backtick) debug panel, P pause, H toggles HD Diddy.
@@ -27,7 +60,7 @@ The debug panel shows how many routines are ported and which original routines s
 ## HD Kongs (optional enhancement)
 
 `src/platform/hdsprites.ts` redraws Diddy and Dixie at 4x. It reads the frame the game chose (the sprite's
-`current_graphic`), decodes it straight from the ROM, colors it with the live palette, upscales it
+`current_graphic`), decodes it from the game data, colors it with the live palette, upscales it
 with xBRZ and draws it on a 4x canvas; the game's own OAM chunks for Diddy are removed just
 before the PPU draws the frame, so nothing else in the game changes. `npx tsx test/hd_align.ts
 <state> <frames> <pad>` checks the overlay lands exactly where the game put the chunks.

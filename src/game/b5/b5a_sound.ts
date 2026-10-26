@@ -37,15 +37,15 @@ const SONG_SFX = L("DATA_EE117B");
 const SONG_SAMPLE_MAPS = L("song_sample_maps");
 const SAMPLE_DIRECTORY_BUFFER = 0x7e2200; // WRAM scratch used to build ARAM tables
 
-// ARAM addresses / sizes are assembler constants of the SPC program (APU namespace) that are
-// not in the symbol table; read them from the immediates of the original instructions.
-const IMM_APU_RESET = L("upload_spc_engine_upload_spc_base_engine") + 0x0d; // LDA #APU_reset
-const IMM_BASE_ENGINE_SIZE = L("upload_spc_engine_upload_spc_base_engine") + 0x32; // CPX.b #size
-const IMM_DATA_0560 = L("upload_spc_engine_upload_spc_sound_engine") + 0x0d; // LDA #DATA_0560
-const IMM_SOUND_ENGINE_WORDS = L("upload_spc_engine_upload_spc_sound_engine") + 0x12; // LDA.w #size/2
-const IMM_SAMPLE_DIR = L("upload_spc_engine_upload_global_samples") + 0x0b; // LDA #sample_table
-const IMM_SAMPLE_DATA = L("upload_spc_engine_upload_global_samples") + 0x12; // LDA #sample_data
-const IMM_ENGINE_ENTRY = L("upload_spc_engine_execute_spc_sound_engine") + 0x01; // LDA #CODE_0672
+// ARAM addresses of the SPC700 program (APU namespace of the disassembly) and transfer sizes.
+// The original has them as immediates of its own instructions; they are program constants.
+const APU_reset = 0x04d8; // ARAM address the base engine is uploaded to (LDA #APU_reset)
+const APU_DATA_0560 = 0x0560; // ARAM address of the sound engine (LDA #DATA_0560)
+const APU_CODE_0672 = 0x0672; // sound engine entry point (LDA #CODE_0672)
+const APU_sample_table = 0x3100; // ARAM sample directory
+const APU_sample_data = 0x3400; // ARAM sample data
+const SPC_BASE_ENGINE_SIZE = SPC_SOUND_ENGINE - SPC_BASE_ENGINE; // $88 bytes (!spc_base_engine_size)
+const SPC_SOUND_ENGINE_WORDS = (SAMPLE_TABLE - SPC_SOUND_ENGINE) >> 1; // $067F (!spc_sound_engine_size/2)
 
 /** 16-bit read through a 24-bit long pointer, as `LDA [dp]` does (second byte at addr+1). */
 function long16(addr: number): number {
@@ -129,7 +129,7 @@ function upload_inline_spc_block() {
 
 /** $B581AC .execute_spc_sound_engine — zero-length transfer = jump to the sound engine main loop. */
 function execute_spc_sound_engine() {
-  w16(0x35, rom16(IMM_ENGINE_ENTRY));
+  w16(0x35, APU_CODE_0672);
   w16(0x37, 0);
   upload_spc_block();
 }
@@ -138,10 +138,10 @@ function execute_spc_sound_engine() {
 function upload_spc_base_engine() {
   // the IPL signals readiness with $BBAA in $2140/$2141
   waitUntil(() => (ioR8(APU.IO1) | (ioR8(APU.IO2) << 8)) === 0xbbaa, 2, 50_000_000);
-  io16(APU.IO3, rom16(IMM_APU_RESET)); // ARAM address of the transfer
+  io16(APU.IO3, APU_reset); // ARAM address of the transfer
   io16(APU.IO1, 0x01cc); // $CC = start transfer, $01 = non-zero (data follows)
   waitEcho(0xcc);
-  const size = rom8(IMM_BASE_ENGINE_SIZE);
+  const size = SPC_BASE_ENGINE_SIZE;
   let x = 0;
   do {
     io8(APU.IO2, rom8(SPC_BASE_ENGINE + x));
@@ -163,8 +163,8 @@ function upload_spc_base_engine() {
 function upload_spc_sound_engine() {
   w16(0x32, SPC_SOUND_ENGINE & 0xffff);
   w16(0x34, SPC_SOUND_ENGINE >> 16);
-  w16(0x35, rom16(IMM_DATA_0560));
-  w16(0x37, rom16(IMM_SOUND_ENGINE_WORDS));
+  w16(0x35, APU_DATA_0560);
+  w16(0x37, SPC_SOUND_ENGINE_WORDS);
   upload_spc_block();
 }
 
@@ -207,7 +207,7 @@ function sample_uploader() {
   w16(0x32, 0x2200);
   w16(0x34, 0x007e);
   w16(0x35, r16(0x42));
-  w16(0x37, (((rom16(IMM_SAMPLE_DATA) - r16(0x42) + 1) & 0xffff) >> 1));
+  w16(0x37, (((APU_sample_data - r16(0x42) + 1) & 0xffff) >> 1));
   upload_spc_block();
   w16(0x3e, GLOBAL_SAMPLE_MAP & 0xffff);
   w16(0x40, GLOBAL_SAMPLE_MAP >> 16);
@@ -230,7 +230,7 @@ function sample_uploader() {
     // .upload_source_number_map
     w16(0x32, 0x2200);
     w16(0x34, 0x007e);
-    w16(0x35, rom16(IMM_DATA_0560));
+    w16(0x35, APU_DATA_0560);
     w16(0x37, 0x0080);
     upload_spc_block();
   }
@@ -258,9 +258,9 @@ function sample_uploader() {
 function upload_global_samples() {
   w16(0x0e, GLOBAL_SAMPLE_MAP & 0xffff);
   w16(0x10, GLOBAL_SAMPLE_MAP >> 16);
-  w16(0x02, rom16(IMM_SAMPLE_DIR));
+  w16(0x02, APU_sample_table);
   w16(0x0a, 0);
-  w16(0x06, rom16(IMM_SAMPLE_DATA));
+  w16(0x06, APU_sample_data);
   w16(0x0a, 0);
   sample_uploader();
   w16(R.spc_sample_dir_destination_2, r16(0x02));

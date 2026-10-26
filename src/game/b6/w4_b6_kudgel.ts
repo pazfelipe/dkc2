@@ -220,7 +220,7 @@ function handleStun() {
   reg.a = r16(0x074d);
   if (reg.a === 0) return;
   reg.x = 0x8400;
-  reg.y = rom16(0x808438);
+  reg.y = 0x00af; // the word at $808438 on a genuine cartridge (LDA.l opcode + operand); no code to read
   if (reg.y !== 0x00af) {
     w16(0x0656, 0);
     reg.x = r16(0x0654);

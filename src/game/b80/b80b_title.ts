@@ -104,7 +104,11 @@ export function set_nmi_and_wait_2() {
 /** $80B109 — A = VRAM word address: clear $800 words with a fixed-source DMA of a zero byte. */
 export function clear_vram_block() {
   io16(PPU.vram_address, reg.a);
-  const zero = L("clear_vram_block_vram_zero_fill") & 0xffff; // operand byte $00 of LDA #$0800
+  // The original's fixed DMA source is the $00 operand byte of its own `LDA #$0800` ($80B116,
+  // label .vram_zero_fill). That byte is code; the port, which runs without the original code,
+  // uses the zero word clear_vram uses (vram_zero_fill, a data word in the same bank) instead.
+  // Only the DMA source register value differs; the VRAM written is the same.
+  const zero = L("vram_zero_fill") & 0xffff;
   io16(DMA.source, zero);
   io16(DMA.unused_2, zero);
   io16(DMA.size, 0x0800);

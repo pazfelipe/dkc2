@@ -3,8 +3,10 @@
 This project ports the game logic of **Donkey Kong Country 2 (USA, Rev 1)** from 65816 assembly
 to readable TypeScript, routine by routine, in the style of the zelda3 port. The source of truth is
 the community disassembly at `/home/claude/ref/dkc2dis` (assembles byte-for-byte to the ROM).
-Graphics, music and data are read from the user's ROM at runtime; nothing from the ROM is copied
-into the repository.
+The game runs without the ROM: its data is extracted once from the user's ROM into `assets/`
+(see README "Game data"), and the cartridge seen by the port and the hardware is a data-only image
+built from those files, with every byte of the original 65816 code zero. The test oracle still runs
+the real ROM to compare against.
 
 ## Architecture in one page
 
@@ -73,6 +75,9 @@ if (reg.c) { ... }               // BCS ...
   `kong_control.gravity_force`, `level.song`, `sprite_table.slot_1`, ... (all in `src/gen/ram.ts`).
   A sprite is addressed by its WRAM base, exactly like X held it: `r16(x + sprite.x_position)`.
 - ROM: `rom8 rom16 rom24 romS16` with 24-bit addresses; labels via `L("DATA_B5BB6D")`.
+  Only **data** may be read this way: the original's code bytes are zero in the port's cartridge
+  (see "ROM-free check" below). Constants that the original keeps as instruction operands
+  (immediates, JMP targets) are written as constants in TS, not read from the instruction.
   Resolve labels **once at module level** (`const T = L("...")`), not in hot loops.
 - Long indirect pointers that can target RAM or ROM (`LDA [$32],y`): `bus8 bus16 bus24 busW8 busW16`.
 - Hardware registers: `io8(PPU.screen, v)`, `io16(...)`, `ioR8(...)`; names in `PPU`, `CPU`, `DMA`,
@@ -196,3 +201,46 @@ tricks, self-modifying code, timing dependencies, suspected disassembly mislabel
   and on the Kong family screens the carry even survives from one frame to the next (the NMI never
   returns with RTI). So a port must leave C exactly as the original does on exit whenever a later
   RNG call can see it (bugs found: `queue_sound_effect`, `CODE_B59F40`). Test with `--ret c`.
+
+## ROM-free check
+
+The port must never read a byte of the original code: in the browser those bytes are not there.
+`tools/rom_layout.json` lists which ROM bytes are code (from the disassembly, see
+`tools/rom_layout.py`). With the data-only image the tests also install a guard that records every
+read of a code byte, by the port (`rom8/rom16/rom24/bus*` in `src/core/mem.ts`) and by the hardware
+(cartridge reads in `hw/lakesnes/cart.c`: DMA sources, CPU fetches):
+
+    DKC2_STATES=... npx tsx test/norom_scan.ts <state-regex> [frames] [part/parts]
+    DKC2_STATES=... npx tsx test/frames.ts --from pirate_walk --frames 1500 --input "..." --norom
+
+`frames.ts --norom` runs the reference on the real ROM and the port on the data-only image (original
+fallback off) and prints the guard's counts. In both modes `frames.ts` masks one WRAM word, the
+camera's anti-piracy accumulator `$0AB2` while its checksum window runs (see below), and prints
+for how many frames it did. Cases found and fixed when the guard was added:
+- anti-piracy checks that add up or compare the original's own code (Kleever `$B6DC6E`, Kudgel
+  stun, water level changer, exit wall `$B3DF5F`, sprite-loader radius check `$BBBA2E`): the port
+  uses the genuine cartridge's outcome (documented constant) instead of reading code;
+- the camera's running checksum over `rare_string`+code (`CODE_B5ED70`): the port keeps its window
+  and stores the genuine total at the end; its accumulator `$0AB2` is the one WRAM word that differs
+  from the original, only while the window runs, and `frames.ts --norom` masks exactly that;
+- immediates of instructions read as data: the SPC700 ARAM addresses/sizes in `b5a_sound.ts`, the
+  decompressor's command jump table (`JMP` stubs at `$BB8000`, now resolved from their labels),
+  and the title's VRAM clear, whose fixed DMA source was the `$00` operand byte of `LDA #$0800`
+  (`$80B116`; now the data word `vram_zero_fill`);
+- original reads past the end of a table into the following code, kept as documented constants:
+  special hitbox `$1E` (8 bytes at `$BCFAF0`, `bc_clipping.ts`), the last mine sparkle position
+  (one byte at `$80BD08`, `b80b_nmi_modes.ts`), the coin's `LDA $5C,x` with a stale X (word at
+  `$80B8BB`, `be1_coins.ts`);
+- the disassembly decodes two data bytes as code: `$B38A56` is the 9th entry of rambi/squitter's
+  state table (`dw $8AEE`, the bonus-level handler, shown as `INC $5A8A`); `tools/rom_layout.py`
+  overrides it to data and the port has the state (`b3a_animals.ts`);
+- reads whose value the original throws away need nothing: 16-bit reads of a byte table's last
+  entry whose high byte is masked off (`DATA_B5D9DE`, `DATA_BED024`), the red zinger's
+  `LDA $xx,x` with a stale X (`$B3A46F`, result overwritten);
+- hardware: after a `$00` line count an indirect HDMA channel still fetches an (unused) indirect
+  address from the bytes after its table (`$BBA416` after `DATA_BBA40F`); the guard ignores
+  those fetches (`cart_guard_dummy` in `hw/lakesnes/dma.c`), their value is never used.
+
+`test/ref_code_reads.ts` lists the other side: every place where the ORIGINAL reads a code byte as
+data (CPU data reads and DMA, not instruction fetches) over the test states, so each one can be
+checked against the port.

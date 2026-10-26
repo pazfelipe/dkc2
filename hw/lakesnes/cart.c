@@ -125,6 +125,24 @@ static void cart_writeLorom(Cart* cart, uint8_t bank, uint16_t adr, uint8_t val)
   }
 }
 
+/* ROM-free guard (DKC2 port): one byte per ROM byte, nonzero where the original had 65816 code.
+ * Every bus read of such a byte (CPU fetch or DMA source) is counted and the first ones logged. */
+uint8_t* cart_guard_map = NULL;
+uint32_t cart_guard_count = 0;
+uint32_t cart_guard_log[256];
+uint32_t cart_guard_pc[256]; /* address of the CPU instruction running at each logged read */
+bool cart_guard_dummy = false; /* set by the HDMA for fetches whose value is never used */
+bool cart_guard_data_only = false; /* oracle use: ignore the CPU's own instruction fetches */
+uint8_t cart_guard_hitmap[0x400000 / 8]; /* every code byte read, one bit each */
+extern bool cpu_in_fetch;
+extern uint32_t cpu_insn_adr;
+/* the CPU fetching its current instruction's bytes (opcode, operands, immediates) */
+static bool cart_is_fetch(Cart* cart, uint32_t off) {
+  if(cpu_in_fetch) return true;
+  uint32_t io = ((((cpu_insn_adr >> 16) & 0x3f) << 16) | (cpu_insn_adr & 0xffff)) & (cart->romSize - 1);
+  return off - io < 4;
+}
+
 static uint8_t cart_readHirom(Cart* cart, uint8_t bank, uint16_t adr) {
   bank &= 0x7f;
   if(bank < 0x40 && adr >= 0x6000 && adr < 0x8000 && cart->ramSize > 0) {
@@ -133,7 +151,13 @@ static uint8_t cart_readHirom(Cart* cart, uint8_t bank, uint16_t adr) {
   }
   if(adr >= 0x8000 || bank >= 0x40) {
     // adr 8000-ffff in all banks or all addresses in banks 40-7f and c0-ff
-    return cart->rom[(((bank & 0x3f) << 16) | adr) & (cart->romSize - 1)];
+    uint32_t off = (((bank & 0x3f) << 16) | adr) & (cart->romSize - 1);
+    if(cart_guard_map && cart_guard_map[off] && !cart_guard_dummy && !(cart_guard_data_only && cart_is_fetch(cart, off))) {
+      if(cart_guard_count < 256) { cart_guard_log[cart_guard_count] = off; cart_guard_pc[cart_guard_count] = cpu_insn_adr; }
+      cart_guard_count++;
+      cart_guard_hitmap[off >> 3] |= 1 << (off & 7);
+    }
+    return cart->rom[off];
   }
   return cart->snes->openBus;
 }

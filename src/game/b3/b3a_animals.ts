@@ -97,6 +97,11 @@ export function squitter_main() {
       process_sprite_animation();
       CODE_BBBB99();
       return;
+    case 8:
+      // the state table's 9th entry ($B38A56, a pointer the disassembly decodes as the dead
+      // instruction `INC $5A8A`) points to the bonus-level handler at $B38AEE
+      bonusHandlerState(0);
+      return;
     default: // 3, 7
       return;
   }

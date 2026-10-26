@@ -455,16 +455,12 @@ export function return_sprite_loader_false() {
 export function anti_piracy_activation_radius_check() {
   default_activation_radius_check();
   if (!reg.c) return;
-  // ROR of $081A with the carry (set) in: X = $840D, the anti-piracy code in bank $80
-  const x = 0x840d;
-  let a = bus16(x);
-  for (let n = 9; n >= 0; n--) {
-    a = ((a ^ bus16(x + 1)) + 1) & 0xffff;
-  }
-  a ^= 0x9684;
-  reg.a = a;
-  reg.x = x;
-  reg.c = a >= 0xffff;
+  // The original folds two code words of the anti-piracy routine at $80840D (EOR/INC ten times,
+  // EOR #$9684) and returns C = (result == $FFFF). On a genuine cartridge the result is $FFFF;
+  // the port runs without the original code, so it returns that outcome directly.
+  reg.a = 0xffff;
+  reg.x = 0x840d;
+  reg.c = true;
 }
 
 function conditional(bit: number) {

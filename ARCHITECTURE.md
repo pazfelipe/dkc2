@@ -107,7 +107,7 @@ own bitmap. A "compound graphic" has an 8-byte header — number of 16×16 chunk
 byte pair per chunk and the raw 4bpp tiles. Each frame, `render_sprites` emits one OAM entry per
 chunk, and if the graphic changed since last frame the tiles are queued for DMA into the
 sprite's fixed VRAM slot (`dma_queued_sprite_graphics`). That is why Diddy always uses the same
-VRAM tiles while his picture changes every frame: the frames stream from ROM.
+VRAM tiles while his picture changes every frame: the frames stream from the cartridge.
 
 ## 5. Animation
 
@@ -141,6 +141,41 @@ At boot `upload_spc_engine` sends Rare's SPC700 driver to the sound CPU using th
 protocol (byte-by-byte handshakes on `$2140-$2143`). When a level starts, its samples and song
 are uploaded the same way (this is what makes room transitions take a few frames). During play
 the CPU only queues commands: "play sound N on channel C", "start song", "fade".
+
+## 9. What the cartridge holds
+
+Assembling the disassembly with asar gives, for every source line, the address of the bytes it
+emitted. Sorting the 4 MiB by the kind of line that produced them (`tools/rom_layout.py`):
+
+| Kind | Bytes | Share |
+|---|---:|---:|
+| 65816 code | 188,392 | 4.5% |
+| data | 3,925,210 | 93.6% |
+| padding (zero) | 80,702 | 1.9% |
+
+The data, by what it is (`assets/` folders):
+
+| Data | Bytes |
+|---|---:|
+| sprite graphics (`gfx/sprite`: pre-rendered animation frames, uncompressed 4bpp) | 1,920,444 |
+| inline tables (`bank_XX/`: sprite constants and init scripts, animation scripts, level configs, pointer tables, text) | 342,392 |
+| level tile graphics (`levels/graphics`, compressed) | 301,657 |
+| world maps, title/menu screens, level backgrounds (graphics + tilemaps + palettes) | 779,045 |
+| sound samples (BRR) | 222,124 |
+| level layouts (32x32 block maps) and block definitions (8x8 tilemaps) | 245,100 |
+| songs (SPC700 sequencer data) and sound effects | 97,017 |
+| collision maps, level palettes, misc | 17,431 |
+
+So the "program" is under 5% of the cartridge; the rest is content. Two things in the data look
+like code but are not 65816 code: the sound driver (SPC700 machine code uploaded to the sound
+CPU, `bank_EE-F2/spc_*_engine.bin`) and the song data, which the driver interprets.
+
+The port keeps only the data. The cartridge it plugs into the emulated hardware is rebuilt from
+`assets/` with zeros where the code was, so addresses stay those of the original: a sprite's
+`constants_address`, an animation script pointer or a DMA source are the same numbers as on the
+console. A few places in the original read their own code as data (anti-piracy checksums and
+compares, instruction operands used as constants, a DMA whose fixed source byte is an operand);
+those are listed in PORTING.md ("ROM-free check").
 
 ---
 *This document grows as the port advances.*

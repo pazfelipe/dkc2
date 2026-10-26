@@ -5,7 +5,8 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Hardware } from "../../src/platform/hw.ts";
-import { bindMachine } from "../../src/core/mem.ts";
+import { bindMachine, setRomGuard } from "../../src/core/mem.ts";
+import { buildImage, codeMap } from "../../tools/lib/assets.ts";
 import { L, labelAt } from "../../src/core/sym.ts";
 
 export const ROM_PATH = process.env.DKC2_ROM ?? "/home/claude/dkc2/Donkey Kong Country 2 - Diddy's Kong Quest (USA) (En,Fr) (Rev 1).sfc";
@@ -45,6 +46,31 @@ export async function makeMachine(): Promise<{ hw: Hardware; rom: Uint8Array; ex
   hw.refreshViews();
   bindMachine(hw, rom);
   return { hw, rom, ex: hw.ex as unknown as Ex };
+}
+
+/**
+ * The port's machine without the ROM: the cartridge holds the data image built from assets/
+ * (code bytes zero), and the ROM-free guard records every read of a code address, by the ported
+ * code (rom8/rom16/rom24/bus reads) and by the hardware (DMA sources, CPU fetches).
+ * Same timing settings as makeMachine, so it can replay the oracle's states.
+ */
+export async function makeNoRomMachine(bind = true): Promise<{ hw: Hardware; image: Uint8Array; code: Uint8Array }> {
+  const { image, manifest } = buildImage();
+  const code = codeMap(manifest);
+  const wasm = readFileSync(new URL("../../public/hw.wasm", import.meta.url));
+  const hw = await Hardware.create(wasm, image);
+  (hw.ex as any).hw_set_overclock(parseInt(process.env.DKC2_OVERCLOCK ?? "6"));
+  (hw.ex as any).hw_set_apu_speed(parseFloat(process.env.DKC2_APU_SPEED ?? "64"));
+  hw.setCodeGuard(code);
+  hw.saveState();
+  hw.refreshViews();
+  if (bind) bindNoRom(hw, image, code);
+  return { hw, image, code };
+}
+/** Point the ported code at a no-ROM machine (and its guard). */
+export function bindNoRom(hw: Hardware, image: Uint8Array, code: Uint8Array) {
+  bindMachine(hw, image);
+  setRomGuard(code);
 }
 
 /** Live CPU registers (e.g. right after hw_emu_run_until stopped at a routine entry). */

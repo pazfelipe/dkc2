@@ -5,3 +5,5 @@ dist
 *.smc
 *.state
 scratch
+assets/
+public/dkc2-data.pak
