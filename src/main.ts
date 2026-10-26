@@ -1,16 +1,17 @@
 /**
- * Browser entry point: asks for the user's ROM (kept locally in IndexedDB), boots the
- * hardware layer, then runs the game at the SNES frame rate.
+ * Browser entry point: loads the game's data (dkc2-data.pak, packed from assets/; no ROM),
+ * boots the hardware layer, then runs the game at the SNES frame rate.
  */
 import { Hardware } from "./platform/hw";
 import { AudioOut } from "./platform/audio";
 import { attachKeyboard, readPad } from "./platform/input";
-import { loadStoredRom, storeRom, sha256, normalizeRom, EXPECTED_SHA256, loadBlob, storeBlob } from "./platform/romstore";
+import { loadBlob, storeBlob, deleteBlob } from "./platform/savestore";
+import { loadDataImage } from "./platform/datapack";
 import { bindMachine } from "./core/mem";
 import { boot, frame, frameHooks } from "./game/machine";
 import { hdScreenActive, setSplit, drawHdScreen, hdAll } from "./platform/hdscreen";
 import { HD_SCALE, snapshotKongs, hideKongOam, drawDiddyHd, setOcclusion, type HdSnapshot } from "./platform/hdsprites";
-import { fallbackStats } from "./core/hybrid";
+import { fallbackStats, setFallbackEnabled } from "./core/hybrid";
 import { portedNames } from "./core/cpu";
 import { labelAt } from "./core/sym";
 
@@ -24,14 +25,19 @@ const image = baseCtx.createImageData(256, 224);
 const audio = new AudioOut();
 const NTSC_FPS = 60.0988;
 
-async function start(rom: Uint8Array) {
-  $("picker").hidden = true;
+async function start() {
+  const url = import.meta.env.BASE_URL;
+  const [wasm, cart] = await Promise.all([fetch(`${url}hw.wasm`).then((r) => r.arrayBuffer()), loadDataImage(`${url}dkc2-data.pak`)]);
+  $("loading").hidden = true;
   $("game").hidden = false;
-  const wasm = await (await fetch(`${import.meta.env.BASE_URL}hw.wasm`)).arrayBuffer();
-  const hw = await Hardware.create(wasm, rom);
+  // the cartridge holds only the game's data: the 65816 code is the TypeScript port
+  const hw = await Hardware.create(wasm, cart);
   hw.saveState();
   hw.refreshViews();
-  bindMachine(hw, rom);
+  bindMachine(hw, cart);
+  // there is no original code to fall back to
+  setFallbackEnabled(false);
+  deleteBlob("rom"); // a ROM stored by older versions of this page
   // battery-backed save RAM (the game saves at Kong Kollege)
   const sram = await loadBlob("sram");
   if (sram && sram.length === hw.sram().length) hw.sram().set(sram);
@@ -159,30 +165,6 @@ async function start(rom: Uint8Array) {
   requestAnimationFrame(tick);
 }
 
-async function acceptFile(file: File) {
-  const rom = normalizeRom(new Uint8Array(await file.arrayBuffer()));
-  const h = await sha256(rom);
-  if (h !== EXPECTED_SHA256) {
-    $("rom-msg").textContent =
-      "This file is not Donkey Kong Country 2 (USA, Rev 1). The port reads data by address, so it needs that exact version.";
-    return;
-  }
-  await storeRom(rom);
-  start(rom);
-}
-
-async function init() {
-  const input = $<HTMLInputElement>("rom-file");
-  input.addEventListener("change", () => input.files?.[0] && acceptFile(input.files[0]));
-  const drop = $("picker");
-  drop.addEventListener("dragover", (e) => e.preventDefault());
-  drop.addEventListener("drop", (e) => {
-    e.preventDefault();
-    const f = e.dataTransfer?.files?.[0];
-    if (f) acceptFile(f);
-  });
-  const stored = await loadStoredRom();
-  if (stored && (await sha256(stored)) === EXPECTED_SHA256) start(stored);
-}
-
-init();
+start().catch((e) => {
+  $("loading").textContent = `Could not start: ${(e as Error).message}. Build the game data with "npm run assets" (see README).`;
+});

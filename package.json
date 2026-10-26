@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Study port of Donkey Kong Country 2 game logic to TypeScript. Requires your own ROM (USA Rev 1).",
+  "description": "Study port of Donkey Kong Country 2 game logic to TypeScript. Game data is extracted once from your own ROM (USA Rev 1) into assets/; the game runs without the ROM.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "extract": "tsx tools/extract_assets.ts",
+    "assets": "tsx tools/pack_assets.ts",
+    "layout": "python3 -I tools/rom_layout.py",
     "gen": "python3 -I tools/gen_symbols.py",
     "hw": "sh hw/build.sh"
   },

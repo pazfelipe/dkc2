@@ -2,14 +2,21 @@
  * Frame-level differential test: the original game on the reference CPU vs the TypeScript driver
  * (port + hybrid fallback), from power-on or from a saved state, with the same inputs.
  *
- *   npx tsx test/frames.ts [--from <state>] [--frames N] [--input script] [--png dir]
+ *   npx tsx test/frames.ts [--from <state>] [--frames N] [--input script] [--png dir] [--norom]
+ *
+ * --norom: the port runs on its own machine whose cartridge is the data-only image built from
+ * assets/ (no code bytes), with the original-code fallback off and the ROM-free guard on; the
+ * reference still runs the real ROM. Reports every read of a code byte. One known difference is
+ * masked: the anti-piracy accumulator word $0AB2 while its checksum window runs (see
+ * CODE_B5ED70 in src/game/b5/b5c_camera.ts: the port has no code to add up).
  */
 import { readFileSync, mkdirSync } from "node:fs";
-import { makeMachine, snap, diffSnaps, fmtDiff, STATES_DIR, L } from "./lib/oracle.ts";
+import { makeMachine, makeNoRomMachine, bindNoRom, snap, diffSnaps, fmtDiff, STATES_DIR, L } from "./lib/oracle.ts";
 import { parseInput } from "./lib/input.ts";
 import { boot, frame } from "../src/game/machine.ts";
 import { reg } from "../src/core/cpu.ts";
-import { fallbackStats } from "../src/core/hybrid.ts";
+import { fallbackStats, setFallbackEnabled } from "../src/core/hybrid.ts";
+import { guardHits } from "../src/core/mem.ts";
 import { labelAt } from "../src/core/sym.ts";
 import { savePng } from "./png.ts";
 
@@ -22,7 +29,9 @@ const from = opt("--from");
 const frames = parseInt(opt("--frames", "300")!);
 const input = parseInput(opt("--input", "")!);
 const png = opt("--png");
+const norom = args.includes("--norom");
 const { hw } = await makeMachine();
+const portM = norom ? await makeNoRomMachine(false) : null;
 
 const start = from ? new Uint8Array(readFileSync(`${STATES_DIR}/${from}.state`)) : hw.saveState();
 // reference run
@@ -40,17 +49,31 @@ for (let f = 0; f < frames; f++) {
   if (png) refFrames.push(hw.frameRGBA().slice() as unknown as Uint8Array);
 }
 // port run
-hw.loadState(start);
-reg.db = (hw.ex as any).hw_cpu_live_reg(5); // the CPU's data bank at the moment of the snapshot
+const phw = portM ? portM.hw : hw;
+if (portM) {
+  bindNoRom(portM.hw, portM.image, portM.code);
+  setFallbackEnabled(false);
+}
+phw.loadState(start);
+if (portM) phw.ex.hw_guard_reset();
+reg.db = (phw.ex as any).hw_cpu_live_reg(5); // the CPU's data bank at the moment of the snapshot
 if (!from) boot();
 let firstBad = -1;
+let masked = 0;
 for (let f = 0; f < frames; f++) {
   const ran = frame(input(f));
   if (!ran && args.includes("--lag")) console.log(`port skipped frame ${f} (lag)`);
   if (!ref[f] && args.includes("--lag")) console.log(`ref unstable at frame ${f}`);
   const rf = ref[f];
   if (!rf) continue; // original was mid-logic (lag frame): not comparable
-  const d = diffSnaps(rf, snap(hw));
+  const ps = snap(phw);
+  if (portM && !(ps.wram[0x0a91] & 0x80) && (ps.wram[0x0ab2] !== rf.wram[0x0ab2] || ps.wram[0x0ab3] !== rf.wram[0x0ab3])) {
+    // anti-piracy checksum window: the port does not add up the original code
+    masked++;
+    ps.wram[0x0ab2] = rf.wram[0x0ab2];
+    ps.wram[0x0ab3] = rf.wram[0x0ab3];
+  }
+  const d = diffSnaps(rf, ps);
   if (d.hard.length && firstBad < 0) {
     firstBad = f;
     console.log(`first divergence at frame ${f}:`);
@@ -58,10 +81,15 @@ for (let f = 0; f < frames; f++) {
   }
   if (png && f % 30 === 0) {
     mkdirSync(png, { recursive: true });
-    savePng(`${png}/port_${String(f).padStart(5, "0")}.png`, hw.frameRGBA(), 256, 224);
+    savePng(`${png}/port_${String(f).padStart(5, "0")}.png`, phw.frameRGBA(), 256, 224);
     savePng(`${png}/ref_${String(f).padStart(5, "0")}.png`, refFrames[f], 256, 224);
   }
 }
 console.log(firstBad < 0 ? `all ${frames} frames identical` : `diverged at frame ${firstBad}`);
 const top = [...fallbackStats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
 console.log("fallback calls:", top.map(([a, n]) => `${labelAt(a)}:${n}`).join(" "));
+if (portM) {
+  const g = phw.guardReads();
+  const ts = [...guardHits.keys()].map((o) => "$" + o.toString(16));
+  console.log(`no-ROM: code-byte reads by the port ${guardHits.size}${ts.length ? " " + ts.slice(0, 10).join(" ") : ""}, by the hardware ${g.count}; frames with the anti-piracy accumulator masked: ${masked}`);
+}
