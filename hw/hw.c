@@ -72,6 +72,16 @@ static void run_pending_dma(void) {
   for (int i = 0; i < 2 && snes->dma->dmaState != 0; i++) dma_handleDma(snes->dma, 6);
 }
 
+/* ROM-free guard: `map` (rom-size bytes from hw_alloc) marks the code bytes of the original;
+ * NULL turns the guard off. hw_guard_count/hw_guard_log report the reads of marked bytes. */
+extern uint8_t* cart_guard_map;
+extern uint32_t cart_guard_count;
+extern uint32_t cart_guard_log[256];
+EXPORT void hw_guard_set(uint8_t* map) { cart_guard_map = map; cart_guard_count = 0; }
+EXPORT uint32_t hw_guard_count(void) { return cart_guard_count; }
+EXPORT uint32_t* hw_guard_log(void) { return cart_guard_log; }
+EXPORT void hw_guard_reset(void) { cart_guard_count = 0; }
+
 EXPORT uint8_t hw_read8(uint32_t adr) { return snes_read(snes, adr); }
 
 EXPORT void hw_write8(uint32_t adr, uint8_t val) {

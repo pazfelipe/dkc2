@@ -94,16 +94,10 @@ function crossed(x: number, kong: number, along: number) {
   if (((along - 1) & 0xffff) >= sr(x, 0x44)) return remember(x, kong);
   const id = sr(x, 0x4c);
   if (id !== 0 && id !== r16(0x0d52)) return deleteTrigger();
-  // .CODE_B3C301: piracy check — checksum of $80848B-$8084C2 (DB = $80 from here on)
-  let sum = 0x8080;
-  let c = 0;
-  for (let i = 0; i <= 0x35; i++) {
-    const s = sum + rom16(0x800000 | ((0x848b + i) & 0xffff)) + c;
-    c = s > 0xffff ? 1 : 0;
-    sum = s & 0xffff;
-  }
+  // .CODE_B3C301: piracy check — the original adds up the code words at $80848B-$8084C2 and
+  // deletes the trigger unless the sum is $20CB (a genuine cartridge). The port runs without
+  // the original code, so the check passes. DB = $80 from here on.
   reg.db = 0x80;
-  if (sum !== 0x20cb) return deleteTrigger();
   const t = cur();
   reg.x = t;
   w16(0x0d52, sr(t, 0x4e));

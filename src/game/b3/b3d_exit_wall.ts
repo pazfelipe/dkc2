@@ -32,23 +32,15 @@ export function breakable_exit_wall_sprite_code() {
 /**
  * $B3DF5F — states 0 and 2: become invisible and go to the next state. Also an anti-piracy
  * check: the reset routine ($8083F7, $1E8 bytes) is folded with EOR/ROR; if it was patched the
- * wall's destination is destroyed ($FFFF, back to the map).
+ * wall's destination is destroyed ($FFFF, back to the map). Always passes in the port.
  */
 export function CODE_B3DF5F() {
   const x = cur();
   sw(x, S.state, sr(x, S.state) + 1);
   sw(x, S.current_graphic, 0);
   sw(x, S.last_rendered_graphic, 0);
-  let a = 0;
-  let c = false;
-  for (let y = 0x01e6; !(y & 0x8000); y = (y - 2) & 0xffff) {
-    a ^= rom16(RESET_START + y);
-    const out = (a & 1) !== 0;
-    a = (a >> 1) | (c ? 0x8000 : 0);
-    c = out;
-  }
-  const folded = ((a >> 8) | (a << 8)) & 0xffff;
-  if (((folded ^ 0xccab) + 1) & 0xffff) sw(x, 0x42, 0xffff);
+  // the fold of the genuine reset routine is $3354 ($3354 ^ $CCAB = $FFFF: passes). The port
+  // runs without the original code, so the wall keeps its destination.
   CODE_B3DF88();
 }
 /** $B3DF88 — PLB / PLY of the check's stack frame: DB back to $B3, Y = $83F7. */

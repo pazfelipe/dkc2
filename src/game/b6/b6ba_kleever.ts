@@ -1502,13 +1502,14 @@ export function CODE_B6DC67(): void {
 
 /**
  * $B6DC6E — anti-piracy: if the copier-detection branch at $808413 was patched, Kleever's
- * flags are inverted (the fight breaks).
+ * flags are inverted (the fight breaks). The port runs without the original code, so it uses
+ * the genuine instruction word and the check always passes.
  */
 export function CODE_B6DC6E(): void {
   reg.db = 0x80;
   reg.a = 0x8400;
   reg.x = 0x8400;
-  reg.y = rom16(0x808413);
+  reg.y = 0xab82; // the word at $808413 on a genuine cartridge (BRL .prepare_anti_piracy); the port has no code to read
   if (reg.y !== 0xab82) {
     reg.x = r16(BOSS.body);
     reg.a = rd(reg.x, 0x2e) ^ 0xffff;

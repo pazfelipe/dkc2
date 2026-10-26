@@ -38,6 +38,10 @@ export interface HwExports {
   hw_state_size(): number;
   hw_frames(): number;
   hw_vblank_count(): number;
+  hw_guard_set(map: number): void;
+  hw_guard_count(): number;
+  hw_guard_log(): number;
+  hw_guard_reset(): void;
 }
 
 export class Hardware {
@@ -50,6 +54,10 @@ export class Hardware {
     this.ex = ex;
   }
 
+  /**
+   * `rom` is the cartridge image: the game's data image built from assets/ (code bytes zero),
+   * or, for the test oracle that runs the original code, the real ROM.
+   */
   static async create(wasmBytes: ArrayBuffer | Uint8Array, rom: Uint8Array): Promise<Hardware> {
     const mod = await WebAssembly.compile(wasmBytes as BufferSource);
     const instance = await WebAssembly.instantiate(mod, {});
@@ -151,6 +159,23 @@ export class Hardware {
     new Uint8Array(this.mem, this.stateBuf, s.length).set(s);
     if (!this.ex.hw_load_state(this.stateBuf, s.length)) throw new Error("bad state");
     this.checkViews();
+  }
+
+  /**
+   * ROM-free guard (tests): `codeMap` has one byte per cartridge byte, nonzero where the original
+   * had 65816 code. Every hardware read of such a byte (CPU fetch, DMA source) is then counted.
+   */
+  setCodeGuard(codeMap: Uint8Array | null) {
+    if (!codeMap) return this.ex.hw_guard_set(0);
+    const p = this.ex.hw_alloc(codeMap.length);
+    new Uint8Array(this.mem, p, codeMap.length).set(codeMap);
+    this.ex.hw_guard_set(p);
+    this.refreshViews();
+  }
+  /** Reads of code bytes since the guard was set or reset, and the first (up to 256) offsets. */
+  guardReads(): { count: number; offsets: number[] } {
+    const count = this.ex.hw_guard_count();
+    return { count, offsets: [...new Uint32Array(this.mem, this.ex.hw_guard_log(), Math.min(count, 256))] };
   }
 
   /** Reference mode: run one frame of the ORIGINAL game code on the emulated 65816. */

@@ -376,15 +376,17 @@ function copy_future_word_2(): number {
   return SET2_WIDE;
 }
 
-/** Command routines by address, for dispatch through the ROM jump tables. */
-const HANDLERS = new Map<number, () => number>();
-function handlerFor(entry: number): () => number {
-  // the RTS lands on a `JMP routine` in bank $BB
-  if (rom8(entry) !== 0x4c) throw new Error(`decompressor: no JMP at $${entry.toString(16)}`);
-  const target = 0xbb0000 | rom16(entry + 1);
-  const h = HANDLERS.get(target);
-  if (!h) throw new Error(`decompressor: unknown command routine $${target.toString(16)}`);
-  return h;
+/**
+ * Command routines by the address the original's RTS lands on. Each command has a 4-byte entry
+ * stub in the jump table at $BB8000 (`<command>_entry`: NOP + JMP <command>, set 2 shifted by one
+ * byte); the decoder pushes "entry - 1" and returns into it. The stubs are code, so the port finds
+ * the command from the entry labels instead of reading the JMP.
+ */
+const ENTRIES: { at: number; fn: () => number }[] = [];
+function handlerFor(lands: number): () => number {
+  const e = ENTRIES.find((e) => lands >= e.at && lands < e.at + 4);
+  if (!e) throw new Error(`decompressor: no command entry at $${lands.toString(16)}`);
+  return e.fn;
 }
 let setTable1: (() => number)[] = [];
 let setTable2: (() => number)[] = [];
@@ -399,7 +401,7 @@ function initTables() {
     back_copy_word_2, back_copy_2, back_copy_far_2, back_copy_arbitrary_2, duplicate_byte_2,
     duplicate_word_2, copy_future_word_2,
   ];
-  for (const r of routines) HANDLERS.set(L(r.name), r);
+  for (const r of routines) ENTRIES.push({ at: L(`${r.name}_entry`), fn: r });
   // set 1: pushed $80(4n) -> RTS to $BB80(4n)+1; set 2: pushed $80(4n+$3F) -> $BB80(4n+$40)
   setTable1 = Array.from({ length: 16 }, (_, n) => handlerFor(0xbb8000 + 4 * n + 1));
   setTable2 = Array.from({ length: 16 }, (_, n) => handlerFor(0xbb8000 + 4 * n + 0x40));

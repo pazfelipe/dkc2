@@ -71,15 +71,38 @@ export function romOff(a: number): number {
   return ((a >> 16) & 0x3f) << 16 | (a & 0xffff);
 }
 export function rom8(a: number): number {
-  return rom[romOff(a)];
+  const o = romOff(a);
+  if (guard !== null) guardCheck(o, 1);
+  return rom[o];
 }
 export function rom16(a: number): number {
   const o = romOff(a);
+  if (guard !== null) guardCheck(o, 2);
   return rom[o] | (rom[o + 1] << 8);
 }
 export function rom24(a: number): number {
   const o = romOff(a);
+  if (guard !== null) guardCheck(o, 3);
   return rom[o] | (rom[o + 1] << 8) | (rom[o + 2] << 16);
+}
+
+// ---- ROM-free guard (tests) ----
+// The port runs on a data-only image of the cartridge (code bytes zero, see
+// src/platform/assetformats.ts). To prove that nothing depends on the original code, the tests
+// install a map of the code bytes; every read of one is recorded with the first caller's stack.
+let guard: Uint8Array | null = null;
+export const guardHits = new Map<number, { count: number; stack: string }>();
+export function setRomGuard(codeMap: Uint8Array | null) {
+  guard = codeMap;
+  guardHits.clear();
+}
+function guardCheck(o: number, n: number) {
+  for (let i = 0; i < n; i++) {
+    if (!guard![o + i]) continue;
+    const h = guardHits.get(o + i);
+    if (h) h.count++;
+    else guardHits.set(o + i, { count: 1, stack: new Error().stack?.split("\n").slice(3, 9).join("\n") ?? "" });
+  }
 }
 export function romS16(a: number): number {
   return (rom16(a) << 16) >> 16;
@@ -101,7 +124,11 @@ function isRomBus(a: number): boolean {
 export function bus8(a: number): number {
   a &= 0xffffff;
   if (isWramBus(a)) return wram[(a >> 16) === 0x7f ? 0x10000 | (a & 0xffff) : a & 0xffff];
-  if (isRomBus(a)) return rom[romOff(a)];
+  if (isRomBus(a)) {
+    const o = romOff(a);
+    if (guard !== null) guardCheck(o, 1);
+    return rom[o];
+  }
   return hw.r8(a);
 }
 export function bus16(a: number): number {

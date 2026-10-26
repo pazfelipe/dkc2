@@ -847,19 +847,24 @@ export function CODE_B5ED3A() {
 // Scrolling
 // =====================================================================================
 
-/** $B5ED70 — anti-piracy checksum (one word per frame), then smooth and scroll the camera. */
+/**
+ * $B5ED70 — anti-piracy checksum (one word per frame), then smooth and scroll the camera.
+ *
+ * The original adds up, one word per frame, the $220 bytes from `rare_string` ($8083C0): the
+ * "Rareware" string and the reset/anti-piracy code after it. On a genuine cartridge the total
+ * is $78D5 and nothing happens; a patched ROM loses camera range ($0AFD). The port has no
+ * original code to add up (it runs without the ROM), so it keeps the window and its frame
+ * counter exactly, does not accumulate during it, and stores the genuine total when it ends.
+ * Only the accumulator word $0AB2 differs from the original, and only while the window runs.
+ */
+const GENUINE_CAMERA_CHECKSUM = (0x9bea - 0x2315) & 0xffff; // = $78D5
 export function CODE_B5ED70() {
   const x = d(0x90);
   if (!neg(x)) {
-    const bank = RARE_STRING >> 16;
-    sd(0x92, bank);
-    const ptr = ((bank << 16) | x) + (RARE_STRING & 0xffff);
-    const sum = (bus16(ptr & 0xffffff) + d(0xb2)) & 0xffff;
-    sd(0xb2, sum);
+    sd(0x92, RARE_STRING >> 16);
     if (x >= 0x021f) {
       sd(0x90, (d(0x90) >> 1) | 0x8000); // ROR with carry set: checksum finished
-      // a tampered ROM loses camera range ($0AFD)
-      if (((sum + 0x2315) & 0xffff) !== 0x9bea) w16(0x0afd, r16(0x0afd) - 1);
+      sd(0xb2, GENUINE_CAMERA_CHECKSUM);
     }
   }
   sd(0x92, 0);

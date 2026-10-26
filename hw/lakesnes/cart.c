@@ -125,6 +125,12 @@ static void cart_writeLorom(Cart* cart, uint8_t bank, uint16_t adr, uint8_t val)
   }
 }
 
+/* ROM-free guard (DKC2 port): one byte per ROM byte, nonzero where the original had 65816 code.
+ * Every bus read of such a byte (CPU fetch or DMA source) is counted and the first ones logged. */
+uint8_t* cart_guard_map = NULL;
+uint32_t cart_guard_count = 0;
+uint32_t cart_guard_log[256];
+
 static uint8_t cart_readHirom(Cart* cart, uint8_t bank, uint16_t adr) {
   bank &= 0x7f;
   if(bank < 0x40 && adr >= 0x6000 && adr < 0x8000 && cart->ramSize > 0) {
@@ -133,7 +139,12 @@ static uint8_t cart_readHirom(Cart* cart, uint8_t bank, uint16_t adr) {
   }
   if(adr >= 0x8000 || bank >= 0x40) {
     // adr 8000-ffff in all banks or all addresses in banks 40-7f and c0-ff
-    return cart->rom[(((bank & 0x3f) << 16) | adr) & (cart->romSize - 1)];
+    uint32_t off = (((bank & 0x3f) << 16) | adr) & (cart->romSize - 1);
+    if(cart_guard_map && cart_guard_map[off]) {
+      if(cart_guard_count < 256) cart_guard_log[cart_guard_count] = off;
+      cart_guard_count++;
+    }
+    return cart->rom[off];
   }
   return cart->snes->openBus;
 }
