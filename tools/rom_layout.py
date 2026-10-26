@@ -14,6 +14,8 @@ before it. That line is
   - db/dw/dl/dd, incbin, a pad/fill, or anything assembled with `arch spc700` (the sound
     driver and the song data run on the sound CPU: for the 65816 they are bytes to upload) -> DATA
 Bytes that no line emitted (asar padding between org blocks) are DATA (filler).
+A short list of DATA_OVERRIDES fixes bytes the disassembly decodes as instructions but that the
+game uses as data (each one found by test/ref_code_reads.ts and explained there).
 
 Validation (the script fails if any check fails):
   - every byte executed by the original game in the traced runs (test/states/coverage.bin, one bit
@@ -424,6 +426,29 @@ for i, (off, fid, ln) in enumerate(mapping):
         flush(end)
 flush(pos)
 push(pos, ROM_SIZE, "pad")
+
+# Bytes the disassembly decodes as instructions but that are data (found by test/ref_code_reads.ts,
+# which lists where the original reads code bytes as data). (rom offset, length, name, source, why)
+DATA_OVERRIDES = [
+    (0x338A56, 2, "squitter_main_state_table_entry_8", "bank_B3.asm",
+     "9th entry of rambi/squitter_main's JMP (.state_table,x): dw $8AEE (the bonus-level handler), "
+     "shown as the dead instruction `INC $5A8A`"),
+]
+for o, n, name, src, _why in DATA_OVERRIDES:
+    assert not any((cov[i >> 3] >> (i & 7)) & 1 for i in range(o, o + n)), f"override ${o:06X} is executed"
+    out = []
+    for b in blocks:
+        bo, bl = b[0], b[1]
+        if bo + bl <= o or bo >= o + n:
+            out.append(b)
+            continue
+        if bo < o:
+            out.append([bo, o - bo] + b[2:])
+        out.append([o, n, "data", name, src, 0, None])
+        if bo + bl > o + n:
+            out.append([o + n, bo + bl - o - n, b[2], name_at(o + n), b[4], b[5], b[6]])
+    blocks = out
+    KIND[o:o + n] = b"\x02" * n
 
 # sanity: blocks tile the ROM exactly
 p = 0

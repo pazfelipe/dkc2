@@ -80,6 +80,8 @@ extern uint32_t cart_guard_log[256];
 EXPORT void hw_guard_set(uint8_t* map) { cart_guard_map = map; cart_guard_count = 0; }
 EXPORT uint32_t hw_guard_count(void) { return cart_guard_count; }
 EXPORT uint32_t* hw_guard_log(void) { return cart_guard_log; }
+extern uint32_t cart_guard_pc[256];
+EXPORT uint32_t* hw_guard_pc(void) { return cart_guard_pc; }
 EXPORT void hw_guard_reset(void) { cart_guard_count = 0; }
 extern bool cart_guard_data_only;
 extern uint8_t cart_guard_hitmap[];
